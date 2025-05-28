@@ -41,3 +41,7 @@ next-env.d.ts
 
 # Ignore iCloud file
 .DS_Store
+
+# Ignore submlime files
+direttovidi.sublime-project
+direttovidi.sublime-workspace
