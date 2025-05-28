@@ -7,14 +7,14 @@ export function Intro() {
         DirettoVidi
       </h1>
       <h4 className="text-center md:text-left text-lg mt-5 md:pl-8">
-        A statically generated blog example using{" "}
+        "Go as far as you can see; when you get there, you'll be able to see "{" "}
         <a
           href="https://nextjs.org/"
           className="underline hover:text-blue-600 duration-200 transition-colors"
         >
-          Next.js
+          further
         </a>{" "}
-        and {CMS_NAME}.
+        and {AUTHOR_NAME}.
       </h4>
     </section>
   );
