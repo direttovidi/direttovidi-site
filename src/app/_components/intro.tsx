@@ -1,4 +1,4 @@
-import { CMS_NAME } from "@/lib/constants";
+import { AUTHOR_NAME } from "@/lib/constants";
 
 export function Intro() {
   return (
@@ -9,7 +9,7 @@ export function Intro() {
       <h4 className="text-center md:text-left text-lg mt-5 md:pl-8">
         "Go as far as you can see; when you get there, you'll be able to see "{" "}
         <a
-          href="https://nextjs.org/"
+          href="https://www.brainyquote.com/quotes/thomas_carlyle_384486"
           className="underline hover:text-blue-600 duration-200 transition-colors"
         >
           further
