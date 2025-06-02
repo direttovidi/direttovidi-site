@@ -22,7 +22,7 @@ export default function HomePage() {
         {/* Pinned Post */}
         {pinned && (
           <section className="mt-12">
-            <h3 className="text-2xl font-bold mb-4">Featured Post</h3>
+            <h3 className="text-2xl font-bold mb-4">Introduction</h3>
             <article className="border-b pb-6">
               <h2 className="text-2xl font-semibold">
                 <Link href={`/posts/${pinned.slug}`} className="text-blue-600 hover:underline">

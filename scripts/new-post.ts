@@ -1,6 +1,8 @@
-import fs from "fs";
-import path from "path";
-import slugify from "slugify";
+// scripts/new-post.ts (CommonJS version)
+
+const fs = require("fs");
+const path = require("path");
+const slugify = require("slugify");
 
 const title = process.argv[2];
 if (!title) {
@@ -17,7 +19,7 @@ title: "${title}"
 excerpt: "A short summary of the post."
 date: "${date}"
 author:
-  name: Doug
+  name: Doug Beck
   picture: "/assets/blog/authors/doug.jpg"
 coverImage: "/assets/blog/${slug}/cover.jpg"
 pinned: false

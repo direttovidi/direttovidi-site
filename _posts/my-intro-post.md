@@ -5,6 +5,8 @@ slug: "welcome"
 date: "2025-05-25"
 author:
   name: Doug
+  picture: "/assets/blog/authors/doug.jpg"
+coverImage: "/assets/blog/gas-tanks-and-your-spending/cover.jpg"
 pinned: true
 ---
 
