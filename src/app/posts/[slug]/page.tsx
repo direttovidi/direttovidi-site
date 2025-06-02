@@ -63,10 +63,12 @@ export async function generateMetadata(props: Params): Promise<Metadata> {
   };
 }
 
-export async function generateStaticParams() {
-  const posts = getAllPosts();
+export function generateStaticParams() {
+  const { pinned, others } = getAllPosts();
 
-  return posts.map((post) => ({
+  const allPosts = pinned ? [pinned, ...others] : others;
+
+  return allPosts.map((post) => ({
     slug: post.slug,
   }));
 }
