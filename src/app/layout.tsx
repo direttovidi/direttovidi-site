@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import cn from "classnames";
 import { ThemeSwitcher } from "./_components/theme-switcher";
-import { Analytics } from '@vercel/analytics/next';
+import AnalyticsProvider from "@/app/_components/AnalyticsProvider";
 
 import "./globals.css";
 import Navbar from "./_components/navbar";
@@ -64,7 +64,8 @@ export default function RootLayout({
         <ThemeSwitcher />
         <div className="min-h-screen">{children}</div>
         {/*<Footer />*/}
-        <Analytics/>
+        {/* Only render Analytics in production */}
+        <AnalyticsProvider />
       </body>
     </html>
   );
