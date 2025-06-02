@@ -7,7 +7,7 @@ author:
   name: Doug Beck
   picture: "/assets/blog/authors/doug.jpg"
 ogImage:
-  url: "/assets/blog/hello-world/cover.jpg"
+   url: "/assets/blog/hello-world/cover.jpg"
 ---
 
 Create the vision
