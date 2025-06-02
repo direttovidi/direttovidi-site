@@ -12,4 +12,6 @@ export type Post = {
   };
   content: string;
   preview?: boolean;
+  pinned?: boolean;
+
 };
