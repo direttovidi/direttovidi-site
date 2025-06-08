@@ -66,7 +66,7 @@ export default async function RootLayout({
         <header className="flex justify-between items-center px-6 py-4 border-b">
           {/* Left: Logo and nav links in a row */}
           <div className="flex-1">
-            <Link href="/" className="text-xl font-bold text-blue-600">
+            <Link href="/" className="text-xl font-bold text-blue-600 mr-4 sm:mr-6 md:mr-8 lg:mr-10">
               DirettoVidi
             </Link>
           </div>
