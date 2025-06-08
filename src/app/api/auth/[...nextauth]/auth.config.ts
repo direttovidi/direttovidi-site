@@ -24,5 +24,8 @@ export const authConfig: NextAuthConfig = {
       }
       return token;
     },
+    async redirect({ url, baseUrl }) {
+      return baseUrl; // or any page you want post-login
+    },
   },
 };
