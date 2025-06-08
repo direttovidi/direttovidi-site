@@ -61,7 +61,7 @@ const Switch = () => {
     () =>
       ((typeof localStorage !== "undefined" &&
         localStorage.getItem(STORAGE_KEY)) ??
-        "system") as ColorSchemePreference,
+        "system") as ColorSchemePreference
   );
 
   useEffect(() => {
@@ -88,7 +88,8 @@ const Switch = () => {
       suppressHydrationWarning
       className={styles.switch}
       onClick={handleModeSwitch}
-    />
+    >
+    </button>
   );
 };
 

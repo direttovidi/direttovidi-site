@@ -42,6 +42,11 @@ next-env.d.ts
 # Ignore iCloud file
 .DS_Store
 
+# Ignore vscode configuration
+/.vscode
+
 # Ignore submlime files
 direttovidi.sublime-project
 direttovidi.sublime-workspace
+
+GoogleDirettoVidiOAuth.json

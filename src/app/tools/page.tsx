@@ -1,9 +1,19 @@
 // src/app/tools/page.tsx
 import Container from "@/app/_components/container";
 import { redirect } from "next/navigation";
+import { auth } from "@/app/auth";
 
-export default function ToolsPage() {
-  redirect("/");
+export default async function ToolsPage() {
+  const session = await auth();
+
+  if (!session || session.user.role !== "admin") {
+    // Option 1: Redirect away
+    // redirect("/unauthorized");
+
+    // Option 2: Or render a message
+    return <div>Access denied</div>;
+  }
+
   return (
     <main>
       <Container>

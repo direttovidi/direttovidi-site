@@ -5,10 +5,11 @@ import { Inter } from "next/font/google";
 import cn from "classnames";
 import { ThemeSwitcher } from "./_components/theme-switcher";
 import AnalyticsProvider from "@/app/_components/AnalyticsProvider";
-
+import { auth, signOut } from "@/app/auth";
+import UserMenu from "@/app/_components/usermenu";
 import "./globals.css";
 import Navbar from "./_components/navbar";
-
+import Link from "next/link";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,11 +18,13 @@ export const metadata: Metadata = {
   description: "Guided tools and blog for modern money decisions",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html lang="en">
       <head>
@@ -60,8 +63,24 @@ export default function RootLayout({
       <body
         className={cn(inter.className, "dark:bg-slate-900 dark:text-slate-400")}
       >
-        <Navbar />
-        <ThemeSwitcher />
+        <header className="flex justify-between items-center px-6 py-4 border-b">
+          {/* Left: Logo and nav links in a row */}
+          <div className="flex-1">
+            <Link href="/" className="text-xl font-bold text-blue-600">
+              DirettoVidi
+            </Link>
+          </div>
+
+          {/* Right: User avatar menu */}
+          <div className="flex-none">
+              <Navbar />
+              </div>
+            <div className="flex-1 flex justify-end items-center space-x-6">
+                <ThemeSwitcher />
+              <UserMenu user={session?.user} />
+            </div>
+            {" "}
+        </header>
         <div className="min-h-screen">{children}</div>
         {/*<Footer />*/}
         {/* Only render Analytics in production */}

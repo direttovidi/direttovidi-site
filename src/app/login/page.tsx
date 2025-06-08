@@ -1,17 +1,17 @@
 // src/app/login/page.tsx
 import Container from "@/app/_components/container";
 import { redirect } from "next/navigation";
+import { signIn } from "@/app/auth"
 
 export default function LoginPage() {
-redirect("/");
 return (
-    <main>
-      <Container>
-        <h1 className="text-3xl font-bold mt-8 mb-4">Login</h1>
-        <p className="text-gray-700">
-          This feature is currently under construction. Please check back soon!
-        </p>
-      </Container>
-    </main>
+    <form
+      action={async () => {
+        "use server"
+        await signIn("google")
+      }}
+    >
+    <button type="submit">Signin with Google</button>
+    </form>
   );
 }

@@ -1,10 +1,13 @@
 import Container from "@/app/_components/container";
 import { getAllPosts } from "@/lib/api";
 import Link from "next/link";
+import { auth } from "@/app/auth";
 
-export default function HomePage() {
+export default async function HomePage() {
+
   const { pinned, others } = getAllPosts();
-
+  const session = await auth();
+  
   return (
     <main>
       {/* Hero Section */}
