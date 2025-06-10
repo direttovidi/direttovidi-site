@@ -8,12 +8,13 @@ export default function BudgetCreator() {
   type BudgetItem = {
     category: string;
     amount: string;
+    type: "Need" | "Want" | "Income";
   };
 
   const [month, setMonth] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [items, setItems] = useState<BudgetItem[]>([
-    { category: "", amount: "" },
+    { category: "", amount: "", type: "Need" }, // Default empty item
   ]);
 
   // Fetch existing budget on load or when month/year changes
@@ -27,11 +28,6 @@ export default function BudgetCreator() {
         }
         const data = await res.json();
 
-        type BudgetItem = {
-          category: string;
-          amount: string;
-        };
-
         let fetchedItems: BudgetItem[] = data.items || [];
 
         // Ensure Net Income is always first
@@ -42,7 +38,7 @@ export default function BudgetCreator() {
         if (netIncomeItem !== undefined) {
           fetchedItems = [netIncomeItem, ...fetchedItems];
         } else {
-          fetchedItems = [{ category: "Net Income", amount: "" }, ...fetchedItems];
+          fetchedItems = [{ category: "Net Income", amount: "", type: "Income" }, ...fetchedItems];
         }
 
         setItems(fetchedItems);
@@ -57,7 +53,7 @@ export default function BudgetCreator() {
 
   const handleAddRow = () => {
     console.log("Adding new row");
-    setItems([...items, { category: "", amount: "" }]);
+    setItems([...items, { category: "", amount: "", type: "Need" }]);
   };
 
   const handleChange = (
@@ -65,18 +61,24 @@ export default function BudgetCreator() {
     field: keyof BudgetItem,
     value: string
   ) => {
-    console.log(
-      `Updating item at index ${index}, field: ${field}, value: ${value}`
-    );
     setItems((prevItems) => {
       const updated = [...prevItems];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
   };
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const filteredItems = items.filter(
+      (item) => item.category.trim() !== ""
+    );
+
+    if (filteredItems.length === 0) {
+      alert("Cannot submit an empty budget.");
+      return;
+    }
 
     const response = await fetch("/api/tools/budget", {
       method: "POST",
@@ -151,6 +153,15 @@ export default function BudgetCreator() {
 
           return (
             <div key={index} className="flex gap-4 items-center">
+              <select
+                value={item.type}
+                onChange={(e) => handleChange(index, "type", e.target.value)}
+                className="border px-2 py-1 w-32"
+              >
+                <option value="Need">Need</option>
+                <option value="Want">Want</option>
+                <option value="Income">Income</option>
+              </select>
               <input
                 type="text"
                 placeholder="Category"
