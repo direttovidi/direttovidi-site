@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+
+
 
 export default function BudgetCreator() {
   console.log("BudgetCreator component rendered");
+
 
   type BudgetItem = {
     category: string;
@@ -11,8 +15,15 @@ export default function BudgetCreator() {
     type: "Need" | "Want" | "Income";
   };
 
-  const [month, setMonth] = useState(1);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const searchParams = useSearchParams();
+  const initialMonth = parseInt(searchParams.get("month") || "1");
+  const initialYear = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
+
+  const [month, setMonth] = useState(initialMonth);
+  const [year, setYear] = useState(initialYear);
+
+  // const [month, setMonth] = useState(1);
+  // const [year, setYear] = useState(new Date().getFullYear());
   const [items, setItems] = useState<BudgetItem[]>([
     { category: "", amount: "", type: "Need" }, // Default empty item
   ]);
@@ -67,7 +78,7 @@ export default function BudgetCreator() {
       return updated;
     });
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 

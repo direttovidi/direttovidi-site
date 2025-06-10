@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 	`;
 
 	const existingMap = new Map(
-		existingItems.map((item: any) => [item.category, {amount: item.amount, type: item.type}]));
+		existingItems.map((item: any) => [item.category, { amount: item.amount, type: item.type }]));
 
 	let sortOrder = 0;
 	for (const item of items) {
