@@ -66,20 +66,21 @@ export default async function RootLayout({
         <header className="flex justify-between items-center px-6 py-4 border-b">
           {/* Left: Logo and nav links in a row */}
           <div className="flex-1">
-            <Link href="/" className="text-xl font-bold text-blue-600 mr-4 sm:mr-6 md:mr-8 lg:mr-10">
+            <Link
+              href="/"
+              className="text-xl font-bold text-blue-600 mr-4 sm:mr-6 md:mr-8 lg:mr-10"
+            >
               DirettoVidi
             </Link>
           </div>
-
           {/* Right: User avatar menu */}
           <div className="flex-none">
-              <Navbar />
-              </div>
-            <div className="flex-1 flex justify-end items-center space-x-6">
-                <ThemeSwitcher />
-              <UserMenu user={session?.user} />
-            </div>
-            {" "}
+            <Navbar />
+          </div>
+          <div className="flex-1 flex justify-end items-center space-x-6">
+            <ThemeSwitcher />
+            <UserMenu user={session?.user} />
+          </div>{" "}
         </header>
         <div className="min-h-screen">{children}</div>
         {/*<Footer />*/}
