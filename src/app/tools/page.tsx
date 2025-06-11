@@ -6,7 +6,8 @@ import { auth } from "@/app/auth";
 export default async function ToolsPage() {
   const session = await auth();
 
-  if (!session || session.user.role !== "admin") {
+  console.log("ToolsPage session:", session);
+  if (session == null || session.user.role == "user") {
     // Option 1: Redirect away
     // redirect("/unauthorized");
 

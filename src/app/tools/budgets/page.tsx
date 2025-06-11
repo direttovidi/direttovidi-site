@@ -12,19 +12,36 @@ type BudgetSummary = {
 	expenses: number;
 };
 
+
 export default function BudgetList() {
 	const [budgets, setBudgets] = useState<BudgetSummary[]>([]);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const fetchBudgets = async () => {
-			const res = await fetch("/api/tools/budgets");
-			if (res.ok) {
-				const data = await res.json();
-				setBudgets(data.budgets);
+			setLoading(true);
+			try {
+				const res = await fetch("/api/tools/budgets");
+				if (res.ok) {
+					const data = await res.json();
+					setBudgets(data.budgets);
+				} else {
+					console.error("Failed to fetch budgets");
+				}
+			} finally {
+				setLoading(false);
 			}
 		};
 		fetchBudgets();
 	}, []);
+
+	if (loading) {
+		return (
+			<div className="flex justify-center items-center h-64">
+				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="max-w-xl mx-auto p-6 space-y-4">

@@ -2,12 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-
-
+import BudgetRedirector from "./budgetredirector";
 
 export default function BudgetCreator() {
-  console.log("BudgetCreator component rendered");
-
 
   type BudgetItem = {
     category: string;
@@ -16,14 +13,10 @@ export default function BudgetCreator() {
   };
 
   const searchParams = useSearchParams();
-  const initialMonth = parseInt(searchParams.get("month") || "1");
-  const initialYear = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
+  const [month, setMonth] = useState<number | null>(null);
+  const [year, setYear] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [month, setMonth] = useState(initialMonth);
-  const [year, setYear] = useState(initialYear);
-
-  // const [month, setMonth] = useState(1);
-  // const [year, setYear] = useState(new Date().getFullYear());
   const [items, setItems] = useState<BudgetItem[]>([
     { category: "", amount: "", type: "Need" }, // Default empty item
   ]);
@@ -31,21 +24,48 @@ export default function BudgetCreator() {
   // Fetch existing budget on load or when month/year changes
   useEffect(() => {
     const fetchBudget = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`/api/tools/budget?month=${month}&year=${year}`);
+        let resolvedMonth: number | null = null;
+        let resolvedYear: number | null = null;
+
+        const urlMonth = searchParams.get("month");
+        const urlYear = searchParams.get("year");
+
+        if (urlMonth !== null && urlYear !== null) {
+          resolvedMonth = parseInt(urlMonth);
+          resolvedYear = parseInt(urlYear);
+        } else {
+          const latestRes = await fetch("/api/tools/budget/latest");
+          if (latestRes.ok) {
+            const latest = await latestRes.json();
+            if (latest?.month && latest?.year) {
+              resolvedMonth = latest.month;
+              resolvedYear = latest.year;
+            }
+          }
+        }
+
+        if (resolvedMonth === null || resolvedYear === null) {
+          resolvedMonth = 1;
+          resolvedYear = new Date().getFullYear();
+        }
+
+        setMonth(resolvedMonth);
+        setYear(resolvedYear);
+
+        const res = await fetch(`/api/tools/budget?month=${resolvedMonth}&year=${resolvedYear}`);
         if (!res.ok) {
           console.error("Failed to fetch budget");
           return;
         }
-        const data = await res.json();
 
+        const data = await res.json();
         let fetchedItems: BudgetItem[] = data.items || [];
 
-        // Ensure Net Income is always first
         const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
         fetchedItems = fetchedItems.filter(i => i.category !== "Net Income");
 
-        // Prepend Net Income to top if found, or add default
         if (netIncomeItem !== undefined) {
           fetchedItems = [netIncomeItem, ...fetchedItems];
         } else {
@@ -53,14 +73,15 @@ export default function BudgetCreator() {
         }
 
         setItems(fetchedItems);
-
       } catch (err) {
         console.error("Error fetching budget:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchBudget();
-  }, [month, year]);
+  }, []);
 
   const handleAddRow = () => {
     console.log("Adding new row");
@@ -126,6 +147,14 @@ export default function BudgetCreator() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="max-w-xl mx-auto p-6 space-y-6">
       <div className="flex gap-4">
@@ -135,7 +164,7 @@ export default function BudgetCreator() {
             type="number"
             min="1"
             max="12"
-            value={month}
+            value={month ?? ""}
             onChange={(e) => setMonth(Number(e.target.value))}
             className="ml-2 w-16 border px-2"
           />
@@ -144,7 +173,7 @@ export default function BudgetCreator() {
           Year:
           <input
             type="number"
-            value={year}
+            value={year ?? ""}
             onChange={(e) => setYear(Number(e.target.value))}
             className="ml-2 w-24 border px-2"
           />
