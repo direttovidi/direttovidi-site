@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import BudgetRedirector from "./budgetredirector";
 
 export default function BudgetCreator() {
 
