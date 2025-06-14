@@ -2,28 +2,33 @@ import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
 
 export async function DELETE(req: Request) {
-	const session = await auth();
-	if (!session?.user?.email) {
-		return new Response("Unauthorized", { status: 401 });
-	}
+  const session = await auth();
+  if (!session?.user?.email) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
-	const { month, year, category } = await req.json();
-	if (!month || !year || !category) {
-		return new Response("Missing data", { status: 400 });
-	}
+  const { month, year, category } = await req.json();
 
-	const [{ id: userId }] = await db`
+  const [{ id: userId }] = await db`
     SELECT id FROM users WHERE email = ${session.user.email}`;
 
-	const [budget] = await db`
+  const [budget] = await db`
     SELECT id FROM budgets WHERE user_id = ${userId} AND month = ${month} AND year = ${year}`;
 
-	if (!budget) return new Response("Budget not found", { status: 404 });
+  if (!budget) return new Response("Budget not found", { status: 404 });
 
-	await db`
-    DELETE FROM budget_items WHERE budget_id = ${budget.id} AND category = ${category}`;
+  // If category is present, delete only the item
+  if (category) {
+    await db`
+      DELETE FROM budget_items WHERE budget_id = ${budget.id} AND category = ${category}`;
+    return new Response("Deleted item", { status: 200 });
+  }
 
-	return new Response("Deleted", { status: 200 });
+  // If no category provided, delete entire budget and items
+  await db`DELETE FROM budget_items WHERE budget_id = ${budget.id}`;
+  await db`DELETE FROM budgets WHERE id = ${budget.id}`;
+
+  return new Response("Deleted budget", { status: 200 });
 }
 
 export async function GET(req: Request) {

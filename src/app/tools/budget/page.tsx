@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { Trash2 } from "lucide-react";
 
 export default function BudgetCreator() {
   type BudgetItem = {
@@ -255,6 +256,9 @@ export default function BudgetCreator() {
                 const netIncome = netIncomeItem ?? { category: "Net Income", amount: "", type: "Income" };
 
                 setItems([netIncome, ...otherItems]);
+                
+                setMonth(switchMonth);
+                setYear(switchYear);
               }}
               className={`px-3 py-1 mt-2 rounded text-white ${history.some(h => h.month === switchMonth && h.year === switchYear) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
             >
@@ -282,7 +286,6 @@ export default function BudgetCreator() {
           ))}
         </ul>
       </aside>
-
       <main className="flex-1 p-6">
         <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-6">
           <div className="text-lg font-semibold">
@@ -327,11 +330,11 @@ export default function BudgetCreator() {
                   <button
                     type="button"
                     onClick={() => handleDeleteItem(index, item.category)}
-                    className={`text-red-500 text-sm ml-2 ${isIncome ? "invisible" : ""}`}
+                    className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
                     disabled={isIncome}
                     title={isIncome ? "Cannot delete Net Income" : ""}
                   >
-                    ✕
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               );
