@@ -256,7 +256,7 @@ export default function BudgetCreator() {
                 const netIncome = netIncomeItem ?? { category: "Net Income", amount: "", type: "Income" };
 
                 setItems([netIncome, ...otherItems]);
-                
+
                 setMonth(switchMonth);
                 setYear(switchYear);
               }}
@@ -287,13 +287,13 @@ export default function BudgetCreator() {
         </ul>
       </aside>
       <main className="flex-1 p-6">
-        <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-6">
+        <form onSubmit={handleSubmit} className="w-full px-2 sm:px-0 max-w-xl mx-auto space-y-6">
           <div className="text-lg font-semibold">
             Editing Budget for: {month && year ? `${new Date(year, month - 1).toLocaleString("default", { month: "long" })} ${year}` : "Loading..."}
           </div>
 
           <div className="space-y-2">
-            <div className="grid grid-cols-4 gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
               <div>Type</div>
               <div>Category</div>
               <div>Amount</div>
@@ -302,7 +302,7 @@ export default function BudgetCreator() {
             {items.map((item, index) => {
               const isIncome = item.category === "Net Income";
               return (
-                <div key={index} className="grid grid-cols-4 gap-4 items-center">
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_2fr_auto] gap-4 items-center">
                   <select
                     value={item.type}
                     onChange={(e) => handleChange(index, "type", e.target.value)}
