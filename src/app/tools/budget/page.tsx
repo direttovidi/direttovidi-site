@@ -271,8 +271,8 @@ export default function BudgetCreator() {
               <button
                 className="text-blue-600 hover:underline"
                 onClick={() => {
-                  setMonth(month);
-                  setYear(year);
+                  setMonth(b.month);
+                  setYear(b.year);
                   loadFromHistory(b.month, b.year);
                 }}
               >
