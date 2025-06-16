@@ -249,81 +249,83 @@ export default function BudgetCreator() {
           ))}
         </ul>
       </aside>
-      <main className="flex-1 p-6">
-        <form onSubmit={handleSubmit} className="w-full px-2 sm:px-0 max-w-xl mx-auto space-y-6">
-          <div className="text-lg font-semibold">Editing Budget: {name}</div>
+      <main className="flex-1 px-7 py-6 flex justify-left">
+        <div className="w-full px-2 sm:px-0 max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="text-lg font-semibold">Editing Budget: {name}</div>
 
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              <div>Type</div>
-              <div>Category</div>
-              <div>Monthly</div>
-              <div>Yearly</div>
-              <div />
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                <div>Type</div>
+                <div>Category</div>
+                <div>Monthly</div>
+                <div>Yearly</div>
+                <div />
+              </div>
+              {items.map((item, index) => {
+                const isIncome = item.category === "Net Income";
+                return (
+                  <div key={index} className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 items-center">
+                    <select
+                      value={item.type}
+                      onChange={(e) => handleChange(index, "type", e.target.value)}
+                      className="border px-2 py-1 w-full"
+                    >
+                      <option value="Need">Need</option>
+                      <option value="Want">Want</option>
+                      <option value="Income">Income</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Category"
+                      value={item.category}
+                      onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
+                      className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
+                      readOnly={isIncome}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Monthly"
+                      value={item.monthlyAmount}
+                      onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
+                      className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Yearly"
+                      value={item.yearlyAmount}
+                      onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
+                      className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(index, item.category)}
+                      className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
+                      disabled={isIncome}
+                      title={isIncome ? "Cannot delete Net Income" : ""}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={handleAddRow}
+                className="text-blue-600 underline text-sm"
+              >
+                + Add Category
+              </button>
             </div>
-            {items.map((item, index) => {
-              const isIncome = item.category === "Net Income";
-              return (
-                <div key={index} className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 items-center">
-                  <select
-                    value={item.type}
-                    onChange={(e) => handleChange(index, "type", e.target.value)}
-                    className="border px-2 py-1 w-32"
-                  >
-                    <option value="Need">Need</option>
-                    <option value="Want">Want</option>
-                    <option value="Income">Income</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Category"
-                    value={item.category}
-                    onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
-                    className={`border px-2 py-1 flex-1 ${isIncome ? "bg-gray-100" : ""}`}
-                    readOnly={isIncome}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Monthly"
-                    value={item.monthlyAmount}
-                    onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
-                    className={`border px-2 py-1 w-28 ${isIncome ? "text-green-600" : "text-red-600"}`}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Yearly"
-                    value={item.yearlyAmount}
-                    onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
-                    className={`border px-2 py-1 w-28 ${isIncome ? "text-green-600" : "text-red-600"}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteItem(index, item.category)}
-                    className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
-                    disabled={isIncome}
-                    title={isIncome ? "Cannot delete Net Income" : ""}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={handleAddRow}
-              className="text-blue-600 underline text-sm"
-            >
-              + Add Category
-            </button>
-          </div>
 
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Save Budget
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Save Budget
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );
