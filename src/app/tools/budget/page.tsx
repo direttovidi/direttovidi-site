@@ -287,14 +287,14 @@ export default function BudgetCreator() {
                     placeholder="Monthly"
                     value={item.monthlyAmount}
                     onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
-                    className={`border px-2 py-1 w-24 ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    className={`border px-2 py-1 w-28 ${isIncome ? "text-green-600" : "text-red-600"}`}
                   />
                   <input
                     type="number"
                     placeholder="Yearly"
                     value={item.yearlyAmount}
                     onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
-                    className={`border px-2 py-1 w-24 ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    className={`border px-2 py-1 w-28 ${isIncome ? "text-green-600" : "text-red-600"}`}
                   />
                   <button
                     type="button"
