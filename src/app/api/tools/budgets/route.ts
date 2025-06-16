@@ -12,19 +12,20 @@ export async function GET() {
     SELECT id FROM users WHERE email = ${session.user.email}
   `;
 
-	// /api/tools/budgets/route.ts (or wherever your budgets GET handler is)
 	const budgets = await db`
 		SELECT 
 			b.id,
-			b.month,
-			b.year,
+			b.name,
+			b.created_at,
+			b.modified_at,
 			SUM(CASE WHEN bi.category = 'Net Income' THEN bi.amount ELSE 0 END) AS income,
 			SUM(CASE WHEN bi.category != 'Net Income' THEN bi.amount ELSE 0 END) AS expenses
 		FROM budgets b
-		JOIN budget_items bi ON bi.budget_id = b.id
+		LEFT JOIN budget_items bi ON bi.budget_id = b.id
 		WHERE b.user_id = ${userId}
-		GROUP BY b.id, b.month, b.year
-		ORDER BY b.year DESC, b.month DESC`;
+		GROUP BY b.id
+		ORDER BY b.modified_at DESC NULLS LAST, b.created_at DESC
+	`;
 
 	return new Response(
 		JSON.stringify({ budgets }),

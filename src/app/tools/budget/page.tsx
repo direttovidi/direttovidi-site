@@ -7,67 +7,55 @@ import { Trash2 } from "lucide-react";
 export default function BudgetCreator() {
   type BudgetItem = {
     category: string;
-    amount: string;
+    monthlyAmount: string;
+    yearlyAmount: string;
     type: "Need" | "Want" | "Income";
   };
 
   const searchParams = useSearchParams();
-  const [month, setMonth] = useState<number | null>(null);
-  const [year, setYear] = useState<number | null>(null);
+  const [name, setName] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [switchMonth, setSwitchMonth] = useState<number | null>(null);
-  const [switchYear, setSwitchYear] = useState<number | null>(null);
 
   const [items, setItems] = useState<BudgetItem[]>([
-    { category: "", amount: "", type: "Need" },
+    { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" },
   ]);
 
-  const [history, setHistory] = useState<{ month: number; year: number; label: string }[]>([]);
-  const [selectedHistory, setSelectedHistory] = useState<{ month: number; year: number } | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [newBudgetName, setNewBudgetName] = useState<string>("");
+  const [copyFrom, setCopyFrom] = useState<string>("");
 
   useEffect(() => {
-
     const fetchBudget = async () => {
       setLoading(true);
       try {
-        let resolvedMonth: number | null = null;
-        let resolvedYear: number | null = null;
+        let resolvedName = searchParams.get("name");
 
-        const urlMonth = searchParams.get("month");
-        const urlYear = searchParams.get("year");
-
-        if (urlMonth !== null && urlYear !== null) {
-          resolvedMonth = parseInt(urlMonth);
-          resolvedYear = parseInt(urlYear);
-        } else {
+        if (!resolvedName) {
           const latestRes = await fetch("/api/tools/budget/latest");
           if (latestRes.ok) {
             const latest = await latestRes.json();
-            if (latest?.month && latest?.year) {
-              resolvedMonth = latest.month;
-              resolvedYear = latest.year;
-            }
+            resolvedName = latest.name;
           }
         }
 
-        if (resolvedMonth === null || resolvedYear === null) {
-          resolvedMonth = 1;
-          resolvedYear = new Date().getFullYear();
+        if (!resolvedName) {
+          setLoading(false);
+          return;
         }
 
-        setMonth(resolvedMonth);
-        setYear(resolvedYear);
-        setSwitchMonth(resolvedMonth);
-        setSwitchYear(resolvedYear);
-
-        const res = await fetch(`/api/tools/budget?month=${resolvedMonth}&year=${resolvedYear}`);
+        setName(resolvedName);
+        const res = await fetch(`/api/tools/budget?name=${encodeURIComponent(resolvedName)}`);
         if (!res.ok) {
           console.error("Failed to fetch budget");
           return;
         }
 
         const data = await res.json();
-        let fetchedItems: BudgetItem[] = data.items || [];
+        let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => {
+          const monthly = item.amount ? (Number(item.amount)).toFixed(2) : "";
+          const yearly = item.amount ? (Number(item.amount) * 12).toFixed(2) : "";
+          return { ...item, monthlyAmount: monthly, yearlyAmount: yearly };
+        });
 
         const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
         fetchedItems = fetchedItems.filter(i => i.category !== "Net Income");
@@ -75,7 +63,7 @@ export default function BudgetCreator() {
         if (netIncomeItem !== undefined) {
           fetchedItems = [netIncomeItem, ...fetchedItems];
         } else {
-          fetchedItems = [{ category: "Net Income", amount: "", type: "Income" }, ...fetchedItems];
+          fetchedItems = [{ category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" }, ...fetchedItems];
         }
 
         setItems(fetchedItems);
@@ -89,46 +77,38 @@ export default function BudgetCreator() {
     const fetchHistory = async () => {
       const res = await fetch("/api/tools/budgets");
       const data = await res.json();
-      setHistory(
-        data.budgets.map((b: { month: number; year: number }) => ({
-          ...b,
-          label: `${new Date(b.year, b.month - 1).toLocaleString("default", { month: "long" })} ${b.year}`
-        }))
-      );
+      const names = data.budgets.map((b: any) => b.name);
+      setHistory(names);
     };
 
     fetchBudget();
     fetchHistory();
   }, []);
 
-  const loadFromHistory = async (month: number, year: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/tools/budget?month=${month}&year=${year}`);
-      const data = await res.json();
-      const fetchedItems: BudgetItem[] = data.items || [];
-
-      const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
-      const otherItems = fetchedItems.filter(i => i.category !== "Net Income");
-
-      const netIncome = netIncomeItem ?? { category: "Net Income", amount: "", type: "Income" };
-
-      setItems([netIncome, ...otherItems]);
-    } catch (err) {
-      console.error("Error loading from history:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAddRow = () => {
-    setItems([...items, { category: "", amount: "", type: "Need" }]);
+    setItems([...items, { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" }]);
   };
 
   const handleChange = (index: number, field: keyof BudgetItem, value: string) => {
     setItems((prevItems) => {
       const updated = [...prevItems];
-      updated[index] = { ...updated[index], [field]: value };
+      const item = { ...updated[index] };
+
+      if (field === "monthlyAmount") {
+        item.monthlyAmount = value;
+        const monthly = parseFloat(value);
+        item.yearlyAmount = !isNaN(monthly) ? (monthly * 12).toFixed(2) : "";
+      } else if (field === "yearlyAmount") {
+        item.yearlyAmount = value;
+        const yearly = parseFloat(value);
+        item.monthlyAmount = !isNaN(yearly) ? (yearly / 12).toFixed(2) : "";
+      } else if (field === "category") {
+        item.category = value;
+      } else if (field === "type") {
+        item.type = value as "Need" | "Want" | "Income";
+      }
+
+      updated[index] = item;
       return updated;
     });
   };
@@ -136,30 +116,43 @@ export default function BudgetCreator() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const filteredItems = items.filter((item) => item.category.trim() !== "");
-    if (filteredItems.length === 0) {
-      alert("Cannot submit an empty budget.");
+    if (filteredItems.length === 0 || !name.trim()) {
+      alert("Name and items are required.");
       return;
     }
+    const normalizedItems = filteredItems.map(({ category, monthlyAmount, type }) => ({
+      category,
+      amount: monthlyAmount,
+      type
+    }));
     const response = await fetch("/api/tools/budget", {
       method: "POST",
-      body: JSON.stringify({ month, year, items }),
+      body: JSON.stringify({ name, items: normalizedItems }),
       headers: { "Content-Type": "application/json" },
     });
     if (response.ok) {
       alert("Budget saved!");
+      const res = await fetch("/api/tools/budgets");
+      const data = await res.json();
+      const names = data.budgets.map((b: any) => b.name);
+      setHistory(names);
     } else {
       alert("Failed to save budget.");
     }
   };
 
   const handleDeleteItem = async (index: number, category: string) => {
-    const confirmed = confirm(`Delete category "${category}"?`);
-    if (!confirmed) return;
+    if (!history.includes(name)) {
+      setItems((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+
     const response = await fetch("/api/tools/budget", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, year, category }),
+      body: JSON.stringify({ name, category }),
     });
+
     if (response.ok) {
       setItems((prev) => prev.filter((_, i) => i !== index));
     } else {
@@ -167,12 +160,30 @@ export default function BudgetCreator() {
     }
   };
 
-  useEffect(() => {
-    console.log("Checking Create button state");
-    console.log("switchMonth:", switchMonth);
-    console.log("switchYear:", switchYear);
-    console.log("Conflict exists:", history.some(h => h.month === switchMonth && h.year === switchYear));
-  }, [switchMonth, switchYear, history]);
+  const handleCreateNew = () => {
+    if (!newBudgetName.trim() || history.includes(newBudgetName)) return;
+    setName(newBudgetName);
+    setItems([{ category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" }]);
+  };
+
+  const handleCopyFrom = async () => {
+    if (!copyFrom.trim() || history.includes(newBudgetName)) return;
+    const res = await fetch(`/api/tools/budget?name=${encodeURIComponent(copyFrom)}`);
+    const data = await res.json();
+    const fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => {
+      const monthly = item.amount ? (Number(item.amount)).toFixed(2) : "";
+      const yearly = item.amount ? (Number(item.amount) * 12).toFixed(2) : "";
+      return { ...item, monthlyAmount: monthly, yearlyAmount: yearly };
+    });
+
+    const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
+    const otherItems = fetchedItems.filter(i => i.category !== "Net Income");
+
+    const netIncome = netIncomeItem ?? { category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" };
+
+    setItems([netIncome, ...otherItems]);
+    setName(newBudgetName);
+  };
 
   if (loading) {
     return (
@@ -185,124 +196,75 @@ export default function BudgetCreator() {
   return (
     <div className="flex">
       <aside className="w-64 border-r p-4">
-        <h2 className="font-semibold mb-2 text-center">Budget To Create</h2>
-        <div className="flex gap-2">
-          <select
-            value={switchMonth ?? new Date().getMonth() + 1}
-            onChange={
-              (e) => {
-                console.log("Create New Budget: Switch month changed:", e.target.value);
-                setSwitchMonth(Number(e.target.value))
-              }
-            }
-            className="border px-2 py-1 w-full"
-          >
-            {[...Array(12)].map((_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {new Date(0, i).toLocaleString("default", { month: "long" })}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={switchYear ?? new Date().getFullYear()}
-            onChange={(e) => setSwitchYear(Number(e.target.value))}
-            className="border px-2 py-1 w-20"
-          />
-        </div>
-        <div className="flex justify-center">
-          <button
-            disabled={!switchMonth || !switchYear || history.some(h => h.month === switchMonth && h.year === switchYear)}
-            onClick={async () => {
-              const netIncome: BudgetItem = { category: "Net Income", amount: "", type: "Income" };
-              setItems([netIncome]);
-              setMonth(switchMonth);
-              setYear(switchYear);
-            }
-            }
-            className={`w-fit mt-4 px-3 py-1 rounded text-white ${history.some(h => h.month === switchMonth && h.year === switchYear) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-          >
-            Create New Budget
-          </button>
-        </div>
-        <div className="my-4 text-sm font-semibold text-gray-500 text-center">OR</div>
-        <div className="space-y-2 mb-4">
-          <select
-            onChange={(e) => {
-              const [srcMonth, srcYear] = e.target.value.split('-').map(Number);
-              setSelectedHistory({ month: srcMonth, year: srcYear });
-            }}
-            className="border px-2 py-1 w-full"
-          >
-            <option value="">Select existing budget...</option>
-            {history.map((b) => (
-              <option key={`${b.month}-${b.year}`} value={`${b.month}-${b.year}`}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-          <div className="flex justify-center">
-            <button
-              disabled={!selectedHistory || selectedHistory.month === 0 || selectedHistory.year === 0 || history.some(h => h.month === switchMonth && h.year === switchYear)}
-              onClick={async () => {
-                if (!selectedHistory) return;
-                const res = await fetch(`/api/tools/budget?month=${selectedHistory.month}&year=${selectedHistory.year}`);
-                const data = await res.json();
-                const fetchedItems: BudgetItem[] = data.items || [];
+        <h2 className="font-semibold mb-2 text-center">Create New Budget</h2>
+        <input
+          type="text"
+          placeholder="Enter budget name"
+          value={newBudgetName}
+          onChange={(e) => setNewBudgetName(e.target.value)}
+          className="border px-2 py-1 w-full mb-2"
+        />
+        <button
+          onClick={handleCreateNew}
+          disabled={!newBudgetName.trim() || history.includes(newBudgetName)}
+          className={`w-full px-3 py-1 mb-4 rounded text-white ${!newBudgetName.trim() || history.includes(newBudgetName)
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-green-600 hover:bg-green-700"
+            }`}
+        >
+          Create
+        </button>
 
-                const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
-                const otherItems = fetchedItems.filter(i => i.category !== "Net Income");
+        <div className="text-sm font-semibold text-gray-500 text-center mb-2">OR</div>
 
-                const netIncome = netIncomeItem ?? { category: "Net Income", amount: "", type: "Income" };
+        <select
+          value={copyFrom}
+          onChange={(e) => setCopyFrom(e.target.value)}
+          className="border px-2 py-1 w-full mb-2"
+        >
+          <option value="">Select existing budget...</option>
+          {history.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <button
+          onClick={handleCopyFrom}
+          disabled={!copyFrom.trim() || history.includes(newBudgetName)}
+          className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName)
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-green-600 hover:bg-green-700"
+            }`}
+        >
+          Copy From Existing
+        </button>
 
-                setItems([netIncome, ...otherItems]);
-
-                setMonth(switchMonth);
-                setYear(switchYear);
-              }}
-              className={`px-3 py-1 mt-2 rounded text-white ${history.some(h => h.month === switchMonth && h.year === switchYear) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-            >
-              Copy Existing Budget
-            </button>
-          </div>
-        </div>
-        <div>
-          <h2 className="font-semibold mb-2 text-center">Existing Budgets</h2>
-        </div>
-        <ul className="space-y-2 flex flex-col items-center">
+        <h2 className="font-semibold mb-2 text-center">Existing Budgets</h2>
+        <ul className="space-y-2">
           {history.map((b) => (
-            <li key={`${b.month}-${b.year}`}>
-              <button
-                className="text-blue-600 hover:underline"
-                onClick={() => {
-                  setMonth(b.month);
-                  setYear(b.year);
-                  loadFromHistory(b.month, b.year);
-                }}
-              >
-                {b.label}
-              </button>
+            <li key={b}>
+              <a href={`?name=${encodeURIComponent(b)}`} className="text-blue-600 hover:underline block text-center">
+                {b}
+              </a>
             </li>
           ))}
         </ul>
       </aside>
       <main className="flex-1 p-6">
         <form onSubmit={handleSubmit} className="w-full px-2 sm:px-0 max-w-xl mx-auto space-y-6">
-          <div className="text-lg font-semibold">
-            Editing Budget for: {month && year ? `${new Date(year, month - 1).toLocaleString("default", { month: "long" })} ${year}` : "Loading..."}
-          </div>
+          <div className="text-lg font-semibold">Editing Budget: {name}</div>
 
           <div className="space-y-2">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+            <div className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
               <div>Type</div>
               <div>Category</div>
-              <div>Amount</div>
+              <div>Monthly</div>
+              <div>Yearly</div>
               <div />
             </div>
             {items.map((item, index) => {
               const isIncome = item.category === "Net Income";
               return (
-                <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_2fr_auto] gap-4 items-center">
+                <div key={index} className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 items-center">
                   <select
                     value={item.type}
                     onChange={(e) => handleChange(index, "type", e.target.value)}
@@ -322,10 +284,17 @@ export default function BudgetCreator() {
                   />
                   <input
                     type="number"
-                    placeholder="Amount"
-                    value={item.amount}
-                    onChange={(e) => handleChange(index, "amount", e.target.value)}
-                    className={`border px-2 py-1 w-32 ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    placeholder="Monthly"
+                    value={item.monthlyAmount}
+                    onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
+                    className={`border px-2 py-1 w-24 ${isIncome ? "text-green-600" : "text-red-600"}`}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Yearly"
+                    value={item.yearlyAmount}
+                    onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
+                    className={`border px-2 py-1 w-24 ${isIncome ? "text-green-600" : "text-red-600"}`}
                   />
                   <button
                     type="button"

@@ -1,4 +1,3 @@
-// /app/tools/budgets/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,8 +6,9 @@ import { Trash2 } from "lucide-react";
 
 type BudgetSummary = {
 	id: string;
-	month: number;
-	year: number;
+	name: string;
+	created_at: string;
+	modified_at: string | null;
 	income: number;
 	expenses: number;
 };
@@ -48,10 +48,10 @@ export default function BudgetList() {
 			<h1 className="text-2xl font-bold mb-4">Your Budgets</h1>
 
 			<div className="grid grid-cols-4 font-semibold text-sm text-gray-700 dark:text-gray-300 border-b pb-2 mb-2">
-				<div>Month / Year</div>
+				<div>Name</div>
 				<div>Net Income</div>
 				<div>Total Expenses</div>
-				<div></div>
+				<div className="text-right">Last Modified</div>
 			</div>
 
 			{budgets.length === 0 ? (
@@ -62,31 +62,39 @@ export default function BudgetList() {
 						key={b.id}
 						className="grid grid-cols-4 py-2 border-b hover:bg-gray-50 dark:hover:bg-slate-800 items-center"
 					>
-						<a href={`/tools/budget?month=${b.month}&year=${b.year}`} className="text-blue-600 underline">
-							{new Date(b.year, b.month - 1).toLocaleString("default", { month: "long" })} {b.year}
-						</a>
+						<Link
+							href={`/tools/budget?name=${encodeURIComponent(b.name)}`}
+							className="text-blue-600 underline"
+						>
+							{b.name}
+						</Link>
 						<div className="text-green-600">${Number(b.income).toFixed(2)}</div>
 						<div className="text-red-600">${Math.abs(Number(b.expenses)).toFixed(2)}</div>
-						<button
-							onClick={async () => {
-								const confirmed = confirm(`Delete budget for ${new Date(b.year, b.month - 1).toLocaleString("default", { month: "long" })} ${b.year}?`);
-								if (!confirmed) return;
-								const res = await fetch("/api/tools/budget", {
-									method: "DELETE",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({ month: b.month, year: b.year }),
-								});
-								if (res.ok) {
-									setBudgets((prev) => prev.filter((item) => item.id !== b.id));
-								} else {
-									alert("Failed to delete budget.");
-								}
-							}}
-							className="text-red-500 hover:text-red-700"
-							title="Delete budget"
-						>
-							<Trash2 className="w-4 h-4" />
-						</button>
+						<div className="flex justify-end gap-2 items-center text-xs text-gray-500">
+							<span>
+								{new Date(b.modified_at || b.created_at).toLocaleDateString()}
+							</span>
+							<button
+								onClick={async () => {
+									const confirmed = confirm(`Delete budget "${b.name}"?`);
+									if (!confirmed) return;
+									const res = await fetch("/api/tools/budget", {
+										method: "DELETE",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ name: b.name }),
+									});
+									if (res.ok) {
+										setBudgets((prev) => prev.filter((item) => item.id !== b.id));
+									} else {
+										alert("Failed to delete budget.");
+									}
+								}}
+								className="text-red-500 hover:text-red-700"
+								title="Delete budget"
+							>
+								<Trash2 className="w-4 h-4" />
+							</button>
+						</div>
 					</div>
 				))
 			)}

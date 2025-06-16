@@ -2,83 +2,65 @@ import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+	const session = await auth();
+	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
-  const { month, year, category } = await req.json();
+	const { name, category } = await req.json();
+	if (!name) return new Response("Missing budget name", { status: 400 });
 
-  const [{ id: userId }] = await db`
+	const [{ id: userId }] = await db`
     SELECT id FROM users WHERE email = ${session.user.email}`;
 
-  const [budget] = await db`
-    SELECT id FROM budgets WHERE user_id = ${userId} AND month = ${month} AND year = ${year}`;
+	const [budget] = await db`
+    SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+	if (!budget) return new Response("Budget not found", { status: 404 });
 
-  if (!budget) return new Response("Budget not found", { status: 404 });
-
-  // If category is present, delete only the item
-  if (category) {
-    await db`
+	if (category) {
+		await db`
       DELETE FROM budget_items WHERE budget_id = ${budget.id} AND category = ${category}`;
-    return new Response("Deleted item", { status: 200 });
-  }
+		return new Response("Deleted item", { status: 200 });
+	}
 
-  // If no category provided, delete entire budget and items
-  await db`DELETE FROM budget_items WHERE budget_id = ${budget.id}`;
-  await db`DELETE FROM budgets WHERE id = ${budget.id}`;
+	await db`DELETE FROM budget_items WHERE budget_id = ${budget.id}`;
+	await db`DELETE FROM budgets WHERE id = ${budget.id}`;
 
-  return new Response("Deleted budget", { status: 200 });
+	return new Response("Deleted budget", { status: 200 });
 }
 
 export async function GET(req: Request) {
 	const session = await auth();
-	if (!session?.user?.email) {
-		return new Response("Unauthorized", { status: 401 });
-	}
+	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
 	const url = new URL(req.url);
-	const month = parseInt(url.searchParams.get("month") || "");
-	const year = parseInt(url.searchParams.get("year") || "");
+	const name = url.searchParams.get("name");
 
-	if (!month || !year) {
-		return new Response("Missing month or year", { status: 400 });
-	}
+	if (!name) return new Response("Missing budget name", { status: 400 });
 
-	const userResult = await db`
+	const [{ id: userId }] = await db`
     SELECT id FROM users WHERE email = ${session.user.email}`;
-	const userId = userResult[0]?.id;
 
-	if (!userId) {
-		return new Response("User not found", { status: 404 });
-	}
+	const [budget] = await db`
+    SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
 
-	const budgets = await db`
-    SELECT id FROM budgets
-    WHERE user_id = ${userId} AND month = ${month} AND year = ${year}`;
-
-	if (budgets.length === 0) {
+	if (!budget) {
 		return new Response(JSON.stringify({ budget: null, items: [] }), {
 			headers: { "Content-Type": "application/json" },
 			status: 200,
 		});
 	}
 
-	const budgetId = budgets[0].id;
-
 	const dbItems = await db`
     SELECT category, amount, type FROM budget_items
-    WHERE budget_id = ${budgetId}
+    WHERE budget_id = ${budget.id}
     ORDER BY sort_order`;
 
-	// Normalize amounts for display: keep income positive, show absolute for expenses
 	const items = dbItems.map((item: any) => ({
 		category: item.category,
-		amount:
-			item.category === "Net Income" ? item.amount : Math.abs(item.amount),
+		amount: item.category === "Net Income" ? item.amount : Math.abs(item.amount),
+		type: item.type
 	}));
 
-	return new Response(JSON.stringify({ budget: { id: budgetId }, items }), {
+	return new Response(JSON.stringify({ budget: { id: budget.id }, items }), {
 		headers: { "Content-Type": "application/json" },
 		status: 200,
 	});
@@ -86,38 +68,33 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
 	const session = await auth();
-	if (!session?.user?.email) {
-		return new Response("Unauthorized", { status: 401 });
-	}
+	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
-	const { month, year, items } = await req.json();
+	const { name, items } = await req.json();
+	if (!name || typeof name !== "string") return new Response("Missing or invalid name", { status: 400 });
 
-	// Get the user
-	const result = await db`
+	const [{ id: userId }] = await db`
     SELECT id FROM users WHERE email = ${session.user.email}`;
-	const userId = result[0]?.id;
 
-	// Get or create budget
 	const [existingBudget] = await db`
-    SELECT id FROM budgets WHERE user_id = ${userId} AND month = ${month} AND year = ${year}`;
+    SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
 
 	const budgetId = existingBudget
 		? existingBudget.id
 		: (
 			await db`
-	INSERT INTO budgets (user_id, month, year)
-	VALUES (${userId}, ${month}, ${year})
-	RETURNING id
-        `
+        INSERT INTO budgets (user_id, name)
+        VALUES (${userId}, ${name})
+        RETURNING id
+      `
 		)[0].id;
 
-	// Fetch existing budget items
 	const existingItems = await db`
-    SELECT category, amount, type FROM budget_items WHERE budget_id = ${budgetId}
-	`;
+    SELECT category, amount, type FROM budget_items WHERE budget_id = ${budgetId}`;
 
 	const existingMap = new Map(
-		existingItems.map((item: any) => [item.category, { amount: item.amount, type: item.type }]));
+		existingItems.map((item: any) => [item.category, { amount: item.amount, type: item.type }])
+	);
 
 	let sortOrder = 0;
 	for (const item of items) {
@@ -127,17 +104,18 @@ export async function POST(req: Request) {
 
 		const existingItem = existingMap.get(item.category);
 
-		if (existingItem === undefined) {
-			// Insert new item
+		if (!existingItem) {
 			await db`
-				INSERT INTO budget_items (budget_id, category, amount, sort_order, type)
-				VALUES (${budgetId}, ${item.category}, ${normalizedAmount}, ${sortOrder}, ${item.type})`;
-		} else if (parseFloat(existingItem.amount) !== normalizedAmount || existingItem.type !== item.type) {
-			// Update existing item if normalized amount changed
+        INSERT INTO budget_items (budget_id, category, amount, sort_order, type)
+        VALUES (${budgetId}, ${item.category}, ${normalizedAmount}, ${sortOrder}, ${item.type})`;
+		} else if (
+			parseFloat(existingItem.amount) !== normalizedAmount ||
+			existingItem.type !== item.type
+		) {
 			await db`
-				UPDATE budget_items
-				SET amount = ${normalizedAmount}, type = ${item.type}, sort_order = ${sortOrder}
-				WHERE budget_id = ${budgetId} AND category = ${item.category}`;
+        UPDATE budget_items
+        SET amount = ${normalizedAmount}, type = ${item.type}, sort_order = ${sortOrder}
+        WHERE budget_id = ${budgetId} AND category = ${item.category}`;
 		}
 
 		sortOrder++;

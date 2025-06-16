@@ -9,20 +9,19 @@ export async function GET() {
         return new Response("Unauthorized", { status: 401 });
     }
 
-    const userResult = await db`
+    const [{ id: userId }] = await db`
     SELECT id FROM users WHERE email = ${session.user.email}`;
-    const userId = userResult[0]?.id;
 
-    const latest = await db`
-    SELECT month, year
+    const [latest] = await db`
+    SELECT name
     FROM budgets
     WHERE user_id = ${userId}
-    ORDER BY year DESC, month DESC
+    ORDER BY modified_at DESC NULLS LAST, created_at DESC
     LIMIT 1`;
 
-    if (latest.length === 0) {
+    if (!latest) {
         return new Response("No budgets found", { status: 404 });
     }
 
-    return Response.json(latest[0]);
+    return Response.json({ name: latest.name });
 }
