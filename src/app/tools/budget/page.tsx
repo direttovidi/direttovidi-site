@@ -25,6 +25,39 @@ export default function BudgetCreator() {
   const [copyFrom, setCopyFrom] = useState<string>("");
 
   useEffect(() => {
+    if (!name.trim()) return;
+
+    const timeout = setTimeout(() => {
+      const filteredItems = items.filter(
+        (item) =>
+          item.category.trim() !== "" &&
+          item.monthlyAmount.trim() !== "" &&
+          item.yearlyAmount.trim() !== ""
+      );
+
+      if (filteredItems.length === 0) return;
+      const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+        category,
+        monthlyAmount,
+        yearlyAmount,
+        type,
+      }));
+
+      fetch("/api/tools/budget", {
+        method: "POST",
+        body: JSON.stringify({ name, items: normalizedItems }),
+        headers: { "Content-Type": "application/json" },
+      }).then((res) => {
+        if (!res.ok) {
+          console.error("Auto-save failed");
+        }
+      });
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [items, name]);
+
+  useEffect(() => {
     const fetchBudget = async () => {
       setLoading(true);
       try {
@@ -39,6 +72,8 @@ export default function BudgetCreator() {
         }
 
         if (!resolvedName) {
+          setName(""); // Ensure name is blank
+          setItems([]); // No items at all
           setLoading(false);
           return;
         }
@@ -51,11 +86,12 @@ export default function BudgetCreator() {
         }
 
         const data = await res.json();
-        let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => {
-          const monthly = item.amount ? (Number(item.amount)).toFixed(2) : "";
-          const yearly = item.amount ? (Number(item.amount) * 12).toFixed(2) : "";
-          return { ...item, monthlyAmount: monthly, yearlyAmount: yearly };
-        });
+        let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
+          category: item.category,
+          monthlyAmount: item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "",
+          yearlyAmount: item.yearlyAmount ? Number(item.yearlyAmount).toFixed(2) : "",
+          type: item.type,
+        }));
 
         const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
         fetchedItems = fetchedItems.filter(i => i.category !== "Net Income");
@@ -104,6 +140,9 @@ export default function BudgetCreator() {
         item.monthlyAmount = !isNaN(yearly) ? (yearly / 12).toFixed(2) : "";
       } else if (field === "category") {
         item.category = value;
+        if (value === "Net Income") {
+          item.type = "Income";
+        }
       } else if (field === "type") {
         item.type = value as "Need" | "Want" | "Income";
       }
@@ -120,11 +159,13 @@ export default function BudgetCreator() {
       alert("Name and items are required.");
       return;
     }
-    const normalizedItems = filteredItems.map(({ category, monthlyAmount, type }) => ({
+    const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
       category,
-      amount: monthlyAmount,
+      monthlyAmount,
+      yearlyAmount,
       type
     }));
+
     const response = await fetch("/api/tools/budget", {
       method: "POST",
       body: JSON.stringify({ name, items: normalizedItems }),
@@ -252,10 +293,12 @@ export default function BudgetCreator() {
       <main className="flex-1 px-7 py-6 flex justify-left">
         <div className="w-full px-2 sm:px-0 max-w-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="text-lg font-semibold">Editing Budget: {name}</div>
+            <div className="text-lg font-semibold">
+              {name ? `Editing Budget: ${name}` : "No Budget Found. Please create a new one."}
+            </div>
 
             <div className="space-y-2">
-              <div className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              <div className="grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
                 <div>Type</div>
                 <div>Category</div>
                 <div>Monthly</div>
@@ -265,11 +308,12 @@ export default function BudgetCreator() {
               {items.map((item, index) => {
                 const isIncome = item.category === "Net Income";
                 return (
-                  <div key={index} className="grid grid-cols-[1fr_2fr_2fr_2fr_auto] gap-4 items-center">
+                  <div key={index} className="grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center">
                     <select
                       value={item.type}
                       onChange={(e) => handleChange(index, "type", e.target.value)}
                       className="border px-2 py-1 w-full"
+                      disabled={isIncome}
                     >
                       <option value="Need">Need</option>
                       <option value="Want">Want</option>
@@ -288,6 +332,12 @@ export default function BudgetCreator() {
                       placeholder="Monthly"
                       value={item.monthlyAmount}
                       onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
+                      onBlur={() => {
+                        const value = parseFloat(item.monthlyAmount);
+                        if (!isNaN(value)) {
+                          handleChange(index, "monthlyAmount", value.toFixed(2));
+                        }
+                      }}
                       className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
                     />
                     <input
@@ -295,6 +345,12 @@ export default function BudgetCreator() {
                       placeholder="Yearly"
                       value={item.yearlyAmount}
                       onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
+                      onBlur={() => {
+                        const value = parseFloat(item.yearlyAmount);
+                        if (!isNaN(value)) {
+                          handleChange(index, "yearlyAmount", value.toFixed(2));
+                        }
+                      }}
                       className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
                     />
                     <button
@@ -312,18 +368,15 @@ export default function BudgetCreator() {
               <button
                 type="button"
                 onClick={handleAddRow}
-                className="text-blue-600 underline text-sm"
+                className={`text-sm underline ${name
+                  ? "text-blue-600 hover:text-blue-800"
+                  : "text-gray-400 cursor-not-allowed"
+                  }`}
+                disabled={!name}
               >
                 + Add Category
               </button>
             </div>
-
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Save Budget
-            </button>
           </form>
         </div>
       </main>

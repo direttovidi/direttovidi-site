@@ -89,7 +89,7 @@ export default function BudgetList() {
 										alert("Failed to delete budget.");
 									}
 								}}
-								className="text-red-500 hover:text-red-700"
+								className="ml-2 text-red-500 hover:text-red-700"
 								title="Delete budget"
 							>
 								<Trash2 className="w-4 h-4" />

@@ -18,8 +18,8 @@ export async function GET() {
 			b.name,
 			b.created_at,
 			b.modified_at,
-			SUM(CASE WHEN bi.category = 'Net Income' THEN bi.amount ELSE 0 END) AS income,
-			SUM(CASE WHEN bi.category != 'Net Income' THEN bi.amount ELSE 0 END) AS expenses
+			SUM(CASE WHEN bi.category = 'Net Income' THEN bi.monthly_amount ELSE 0 END) AS income,
+			SUM(CASE WHEN bi.category != 'Net Income' THEN bi.monthly_amount ELSE 0 END) AS expenses
 		FROM budgets b
 		LEFT JOIN budget_items bi ON bi.budget_id = b.id
 		WHERE b.user_id = ${userId}
