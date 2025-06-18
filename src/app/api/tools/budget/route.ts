@@ -41,7 +41,8 @@ export async function GET(req: Request) {
 		SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	const [budget] = await db`
-		SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+		SELECT id, is_retired, total_assets FROM budgets
+		WHERE user_id = ${userId} AND name = ${name}`;
 
 	if (!budget) {
 		return new Response(JSON.stringify({ budget: null, items: [] }), {
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
 	const session = await auth();
 	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
-	const { name, items } = await req.json();
+	const { name, items, isRetired, totalAssets } = await req.json();
 	if (!name || typeof name !== "string") return new Response("Missing or invalid name", { status: 400 });
 
 	const [{ id: userId }] = await db`
@@ -83,12 +84,21 @@ export async function POST(req: Request) {
 	const [existingBudget] = await db`
 		SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
 
+	if (existingBudget && (isRetired !== undefined || totalAssets !== undefined)) {
+		await db`
+		UPDATE budgets
+		SET
+		is_retired = ${isRetired},
+		total_assets = ${totalAssets}
+		WHERE id = ${existingBudget.id}`;
+	}
+
 	const budgetId = existingBudget
 		? existingBudget.id
 		: (
 			await db`
-				INSERT INTO budgets (user_id, name)
-				VALUES (${userId}, ${name})
+				INSERT INTO budgets (user_id, name, is_retired, total_assets)
+				VALUES (${userId}, ${name}, ${isRetired}, ${totalAssets})
 				RETURNING id`
 		)[0].id;
 

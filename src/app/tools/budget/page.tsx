@@ -15,7 +15,6 @@ export default function BudgetCreator() {
   const searchParams = useSearchParams();
   const [name, setName] = useState<string>("");
   const [loading, setLoading] = useState(true);
-
   const [items, setItems] = useState<BudgetItem[]>([
     { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" },
   ]);
@@ -23,6 +22,8 @@ export default function BudgetCreator() {
   const [history, setHistory] = useState<string[]>([]);
   const [newBudgetName, setNewBudgetName] = useState<string>("");
   const [copyFrom, setCopyFrom] = useState<string>("");
+  const [isRetired, setIsRetired] = useState<boolean>(false);
+  const [totalAssets, setTotalAssets] = useState<string>("");
 
   useEffect(() => {
     if (!name.trim()) return;
@@ -45,7 +46,7 @@ export default function BudgetCreator() {
 
       fetch("/api/tools/budget", {
         method: "POST",
-        body: JSON.stringify({ name, items: normalizedItems }),
+        body: JSON.stringify({ name, items: normalizedItems, isRetired, totalAssets }),
         headers: { "Content-Type": "application/json" },
       }).then((res) => {
         if (!res.ok) {
@@ -55,11 +56,12 @@ export default function BudgetCreator() {
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [items, name]);
+  }, [items, name, isRetired, totalAssets]);
 
   useEffect(() => {
     const fetchBudget = async () => {
       setLoading(true);
+
       try {
         let resolvedName = searchParams.get("name");
 
@@ -86,6 +88,9 @@ export default function BudgetCreator() {
         }
 
         const data = await res.json();
+        setIsRetired(data.budget?.is_retired ?? false);
+        setTotalAssets(data.budget?.total_assets?.toString() ?? "");
+
         let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
           category: item.category,
           monthlyAmount: item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "",
@@ -168,7 +173,7 @@ export default function BudgetCreator() {
 
     const response = await fetch("/api/tools/budget", {
       method: "POST",
-      body: JSON.stringify({ name, items: normalizedItems }),
+      body: JSON.stringify({ name, items: normalizedItems, isRetired }),
       headers: { "Content-Type": "application/json" },
     });
     if (response.ok) {
@@ -293,6 +298,34 @@ export default function BudgetCreator() {
       <main className="flex-1 px-7 py-6 flex justify-left">
         <div className="w-full px-2 sm:px-0 max-w-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <label htmlFor="isRetired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Retired?
+                </label>
+                <input
+                  id="isRetired"
+                  type="checkbox"
+                  checked={isRetired}
+                  onChange={() => setIsRetired(!isRetired)}
+                  className="h-4 w-4"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Total Assets
+                </label>
+                <input
+                  id="totalAssets"
+                  type="number"
+                  value={totalAssets}
+                  onChange={(e) => setTotalAssets(e.target.value)}
+                  className="border px-2 py-1 w-40"
+                  placeholder="e.g. 1500000"
+                />
+              </div>
+            </div>
             <div className="text-lg font-semibold">
               {name ? `Editing Budget: ${name}` : "No Budget Found. Please create a new one."}
             </div>
