@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { NumericFormat } from 'react-number-format';
 
 export default function BudgetCreator() {
   type BudgetItem = {
@@ -316,13 +317,22 @@ export default function BudgetCreator() {
                 <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Total Assets
                 </label>
-                <input
+                <NumericFormat
                   id="totalAssets"
-                  type="number"
                   value={totalAssets}
-                  onChange={(e) => setTotalAssets(e.target.value)}
+                  thousandSeparator
+                  prefix="$"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  allowNegative={false}
+                  onValueChange={(values) => {
+                    const { floatValue } = values;
+                    if (floatValue !== undefined) {
+                      setTotalAssets(floatValue.toString());
+                    }
+                  }}
                   className="border px-2 py-1 w-40"
-                  placeholder="e.g. 1500000"
+                  placeholder="e.g. 1,500,000"
                 />
               </div>
             </div>
@@ -360,33 +370,36 @@ export default function BudgetCreator() {
                       className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
                       readOnly={isIncome}
                     />
-                    <input
-                      type="number"
-                      placeholder="Monthly"
+                    <NumericFormat
                       value={item.monthlyAmount}
-                      onChange={(e) => handleChange(index, "monthlyAmount", e.target.value)}
-                      onBlur={() => {
-                        const value = parseFloat(item.monthlyAmount);
-                        if (!isNaN(value)) {
-                          handleChange(index, "monthlyAmount", value.toFixed(2));
+                      thousandSeparator
+                      prefix="$"
+                      decimalScale={2}
+                      fixedDecimalScale
+                      allowNegative={false}
+                      onValueChange={(values) => {
+                        const { floatValue } = values;
+                        if (floatValue !== undefined) {
+                          handleChange(index, "monthlyAmount", floatValue.toString());
                         }
                       }}
                       className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
                     />
-                    <input
-                      type="number"
-                      placeholder="Yearly"
+                    <NumericFormat
                       value={item.yearlyAmount}
-                      onChange={(e) => handleChange(index, "yearlyAmount", e.target.value)}
-                      onBlur={() => {
-                        const value = parseFloat(item.yearlyAmount);
-                        if (!isNaN(value)) {
-                          handleChange(index, "yearlyAmount", value.toFixed(2));
+                      thousandSeparator
+                      prefix="$"
+                      decimalScale={2}
+                      fixedDecimalScale
+                      allowNegative={false}
+                      onValueChange={(values) => {
+                        const { floatValue } = values;
+                        if (floatValue !== undefined) {
+                          handleChange(index, "yearlyAmount", floatValue.toString());
                         }
                       }}
                       className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
-                    />
-                    <button
+                    />                    <button
                       type="button"
                       onClick={() => handleDeleteItem(index, item.category)}
                       className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}

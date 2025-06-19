@@ -64,7 +64,11 @@ export async function GET(req: Request) {
 		type: item.type,
 	}));
 
-	return new Response(JSON.stringify({ budget: { id: budget.id }, items }), {
+	return new Response(JSON.stringify({ budget: {
+		id: budget.id,
+		is_retired: budget.is_retired,
+		total_assets: budget.total_assets
+	}, items }), {
 		headers: { "Content-Type": "application/json" },
 		status: 200,
 	});

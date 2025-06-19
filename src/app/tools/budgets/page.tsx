@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
+import {formatCurrency} from "@/lib/format";
 
 type BudgetSummary = {
 	id: string;
@@ -68,8 +69,8 @@ export default function BudgetList() {
 						>
 							{b.name}
 						</Link>
-						<div className="text-green-600">${Number(b.income).toFixed(2)}</div>
-						<div className="text-red-600">${Math.abs(Number(b.expenses)).toFixed(2)}</div>
+						<div className="text-green-600">${formatCurrency(b.income)}</div>
+						<div className="text-red-600">{formatCurrency(Math.abs(b.expenses))}</div>
 						<div className="flex justify-end gap-2 items-center text-xs text-gray-500">
 							<span>
 								{new Date(b.modified_at || b.created_at).toLocaleDateString()}
