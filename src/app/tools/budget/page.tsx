@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { NumericFormat } from 'react-number-format';
@@ -15,6 +15,8 @@ export default function BudgetCreator() {
 
   const searchParams = useSearchParams();
   const [name, setName] = useState<string>("");
+  const [currentName, setCurrentName] = useState<string>(""); // to track original
+  const [newName, setNewName] = useState<string>(""); // editable name
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<BudgetItem[]>([
     { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" },
@@ -25,9 +27,13 @@ export default function BudgetCreator() {
   const [copyFrom, setCopyFrom] = useState<string>("");
   const [isRetired, setIsRetired] = useState<boolean>(false);
   const [totalAssets, setTotalAssets] = useState<string>("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [renameSuccess, setRenameSuccess] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
-    if (!name.trim()) return;
+    if (isEditingName || !newName.trim()) return;
 
     const timeout = setTimeout(() => {
       const filteredItems = items.filter(
@@ -38,6 +44,12 @@ export default function BudgetCreator() {
       );
 
       if (filteredItems.length === 0) return;
+
+      // 🔐 prevent redundant call if nothing changed
+      const isRename = newName !== currentName;
+
+      if (!isRename && !itemsChangedSinceLastSave()) return;
+
       const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
         category,
         monthlyAmount,
@@ -47,17 +59,78 @@ export default function BudgetCreator() {
 
       fetch("/api/tools/budget", {
         method: "POST",
-        body: JSON.stringify({ name, items: normalizedItems, isRetired, totalAssets }),
+        body: JSON.stringify({
+          name: newName,
+          originalName: currentName,
+          items: normalizedItems,
+          isRetired,
+          totalAssets,
+        }),
         headers: { "Content-Type": "application/json" },
-      }).then((res) => {
-        if (!res.ok) {
-          console.error("Auto-save failed");
-        }
       });
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [items, name, isRetired, totalAssets]);
+  }, [items, newName, currentName, isRetired, totalAssets]);
+
+  function itemsChangedSinceLastSave() {
+    // Implement later: optionally track last saved state in a ref
+    return true;
+  }
+
+  const applyRename = async () => {
+    if (!newName.trim() || newName === currentName) return;
+
+    const cleanedName = newName.trim();
+    if (!cleanedName || cleanedName === currentName) return;
+
+    setRenaming(true); // 🔄 Start spinner
+
+    // Save current state explicitly
+    const filteredItems = items.filter((item) => item.category.trim() !== "");
+    const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+      category,
+      monthlyAmount,
+      yearlyAmount,
+      type,
+    }));
+
+    const res = await fetch("/api/tools/budget", {
+      method: "POST",
+      body: JSON.stringify({
+        name: cleanedName,
+        originalName: currentName,
+        items: normalizedItems,
+        isRetired,
+        totalAssets,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (res.ok) {
+      // Update canonical states
+      setName(cleanedName);
+      setCurrentName(cleanedName);
+      setRenameSuccess(true);
+      setTimeout(() => setRenameSuccess(false), 3000); // Hide after 3 seconds
+
+      const newUrl = new URLSearchParams(window.location.search);
+      newUrl.set("name", cleanedName);
+      window.history.replaceState(null, "", `?${newUrl.toString()}`);
+
+      const historyRes = await fetch("/api/tools/budgets");
+      if (historyRes.ok) {
+        const data = await historyRes.json();
+        const names = data.budgets.map((b: any) => b.name);
+        setHistory(names);
+      }
+
+      setRenaming(false); // 🔄 Start spinner
+    } else {
+      const text = await res.text();
+      alert(`Failed to rename: ${text}`);
+    }
+  };
 
   useEffect(() => {
     const fetchBudget = async () => {
@@ -82,6 +155,9 @@ export default function BudgetCreator() {
         }
 
         setName(resolvedName);
+        setCurrentName(resolvedName);
+        setNewName(resolvedName);
+
         const res = await fetch(`/api/tools/budget?name=${encodeURIComponent(resolvedName)}`);
         if (!res.ok) {
           console.error("Failed to fetch budget");
@@ -312,7 +388,6 @@ export default function BudgetCreator() {
                   className="h-4 w-4"
                 />
               </div>
-
               <div className="flex items-center gap-2">
                 <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Total Assets
@@ -336,8 +411,43 @@ export default function BudgetCreator() {
                 />
               </div>
             </div>
-            <div className="text-lg font-semibold">
-              {name ? `Editing Budget: ${name}` : "No Budget Found. Please create a new one."}
+            <div className="inline-flex text-lg font-semibold items-center gap-2">
+              {isEditingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={async () => {
+                    await applyRename();
+                    setIsEditingName(false);
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      await applyRename();
+                      setIsEditingName(false);
+                    }
+                  }}
+                  className="border-b border-gray-400 focus:outline-none focus:border-blue-500 text-lg font-semibold bg-transparent"
+                  autoFocus
+                />
+              ) : (
+                <div
+                  onClick={() => {
+                    setIsEditingName(true);
+                    setTimeout(() => nameInputRef.current?.select(), 0);
+                  }}
+                  className="cursor-pointer hover:underline"
+                  title="Click to rename"
+                >
+                  <span>Editing Budget: {renameSuccess ? newName : name}</span>
+                </div>
+              )}
+
+              {/* ✅ Always show spinner here, not just while editing */}
+              {renaming && (
+                <span className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+              )}
             </div>
 
             <div className="space-y-2">

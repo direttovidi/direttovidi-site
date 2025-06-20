@@ -69,7 +69,7 @@ export default function BudgetList() {
 						>
 							{b.name}
 						</Link>
-						<div className="text-green-600">${formatCurrency(b.income)}</div>
+						<div className="text-green-600">{formatCurrency(b.income)}</div>
 						<div className="text-red-600">{formatCurrency(Math.abs(b.expenses))}</div>
 						<div className="flex justify-end gap-2 items-center text-xs text-gray-500">
 							<span>

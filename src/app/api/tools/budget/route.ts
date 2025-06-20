@@ -64,11 +64,13 @@ export async function GET(req: Request) {
 		type: item.type,
 	}));
 
-	return new Response(JSON.stringify({ budget: {
-		id: budget.id,
-		is_retired: budget.is_retired,
-		total_assets: budget.total_assets
-	}, items }), {
+	return new Response(JSON.stringify({
+		budget: {
+			id: budget.id,
+			is_retired: budget.is_retired,
+			total_assets: budget.total_assets
+		}, items
+	}), {
 		headers: { "Content-Type": "application/json" },
 		status: 200,
 	});
@@ -79,32 +81,44 @@ export async function POST(req: Request) {
 	const session = await auth();
 	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
-	const { name, items, isRetired, totalAssets } = await req.json();
+	const { name, originalName, items, isRetired, totalAssets } = await req.json();
 	if (!name || typeof name !== "string") return new Response("Missing or invalid name", { status: 400 });
 
 	const [{ id: userId }] = await db`
 		SELECT id FROM users WHERE email = ${session.user.email}`;
 
-	const [existingBudget] = await db`
-		SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+	const lookupName = originalName || name;
 
-	if (existingBudget && (isRetired !== undefined || totalAssets !== undefined)) {
-		await db`
-		UPDATE budgets
-		SET
-		is_retired = ${isRetired},
-		total_assets = ${totalAssets}
-		WHERE id = ${existingBudget.id}`;
+	const [existingBudget] = await db`
+  SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${lookupName}`;
+
+	if (!existingBudget) {
+		return new Response("Original budget not found", { status: 404 });
 	}
 
-	const budgetId = existingBudget
-		? existingBudget.id
-		: (
-			await db`
-				INSERT INTO budgets (user_id, name, is_retired, total_assets)
-				VALUES (${userId}, ${name}, ${isRetired}, ${totalAssets})
-				RETURNING id`
-		)[0].id;
+	// Check for name conflict if renaming
+	if (originalName && originalName !== name) {
+		const [conflict] = await db`
+    SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+
+		if (conflict) {
+			return new Response("Budget with this name already exists", { status: 400 });
+		}
+
+		// Safe to rename
+		await db`
+    UPDATE budgets
+    SET name = ${name}
+    WHERE id = ${existingBudget.id}`;
+	}
+
+	await db`
+  UPDATE budgets
+  SET is_retired = ${isRetired}, total_assets = ${totalAssets}
+  WHERE id = ${existingBudget.id}`;
+
+	const budgetId = existingBudget.id;
+
 
 	const existingItems = await db`
 		SELECT category, monthly_amount, yearly_amount, type FROM budget_items WHERE budget_id = ${budgetId}`;
