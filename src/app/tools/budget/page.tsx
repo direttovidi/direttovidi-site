@@ -41,6 +41,7 @@ export default function BudgetCreator() {
     if (isEditingName || !newName.trim()) return;
 
     const timeout = setTimeout(() => {
+      (async () => {
       const filteredItems = items.filter(
         (item) =>
           item.category.trim() !== "" &&
@@ -62,17 +63,32 @@ export default function BudgetCreator() {
         type,
       }));
 
-      fetch("/api/tools/budget", {
-        method: "POST",
-        body: JSON.stringify({
-          name: newName,
-          originalName: currentName,
-          items: normalizedItems,
-          isRetired,
-          totalAssets,
-        }),
-        headers: { "Content-Type": "application/json" },
-      });
+      try {
+        const res = await fetch("/api/tools/budget", {
+          method: "POST",
+          body: JSON.stringify({
+            name: newName,
+            originalName: currentName,
+            items: normalizedItems,
+            isRetired,
+            totalAssets,
+          }),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (res.ok) {
+          // ✅ Only update sidebar when save is confirmed
+          const historyRes = await fetch("/api/tools/budgets");
+          if (historyRes.ok) {
+            const data = await historyRes.json();
+            const names = data.budgets.map((b: any) => b.name);
+            setHistory(names);
+          }
+        }
+      } catch (err) {
+        console.error("Autosave failed", err);
+      }
+    })();
     }, 800);
 
     return () => clearTimeout(timeout);
@@ -298,29 +314,71 @@ export default function BudgetCreator() {
     }
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
     if (!newBudgetName.trim() || history.includes(newBudgetName)) return;
     setName(newBudgetName);
+    setCurrentName(newBudgetName);
+    setNewName(newBudgetName);
     setItems([{ category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" }]);
+
+    setNewBudgetName(""); // Clear input after creating
   };
 
   const handleCopyFrom = async () => {
     if (!copyFrom.trim() || history.includes(newBudgetName)) return;
+
     const res = await fetch(`/api/tools/budget?name=${encodeURIComponent(copyFrom)}`);
     const data = await res.json();
+
     const fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => {
-      const monthly = item.amount ? (Number(item.amount)).toFixed(2) : "";
-      const yearly = item.amount ? (Number(item.amount) * 12).toFixed(2) : "";
-      return { ...item, monthlyAmount: monthly, yearlyAmount: yearly };
+      const monthly = item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "";
+      const yearly = item.yearlyAmount ? Number(item.yearlyAmount).toFixed(2) : "";
+      return {
+        category: item.category,
+        type: item.type,
+        monthlyAmount: monthly,
+        yearlyAmount: yearly,
+      };
     });
 
     const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
     const otherItems = fetchedItems.filter(i => i.category !== "Net Income");
-
     const netIncome = netIncomeItem ?? { category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" };
 
-    setItems([netIncome, ...otherItems]);
+    const newItems = [netIncome, ...otherItems];
+
+    const originalExists = history.includes(newBudgetName);
+
+    const saveRes = await fetch("/api/tools/budget", {
+      method: "POST",
+      body: JSON.stringify({
+        name: newBudgetName,
+        originalName: originalExists ? newBudgetName : "", // ✅ fix here
+        items: newItems,
+        isRetired,
+        totalAssets: totalAssets ? parseFloat(totalAssets) : null,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!saveRes.ok) {
+      const err = await saveRes.text();
+      alert("Failed to save copied budget: " + err);
+      return;
+    }
+
+    // Update state after save
+    setItems(newItems);
     setName(newBudgetName);
+    setCurrentName(newBudgetName);
+    setNewName(newBudgetName);
+
+    const historyRes = await fetch("/api/tools/budgets");
+    if (historyRes.ok) {
+      const names = (await historyRes.json()).budgets.map((b: any) => b.name);
+      setHistory(names);
+    }
+    setNewBudgetName(""); // Clear input after creating
   };
 
   if (loading) {

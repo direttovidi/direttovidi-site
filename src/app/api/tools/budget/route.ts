@@ -87,39 +87,52 @@ export async function POST(req: Request) {
 	const [{ id: userId }] = await db`
 		SELECT id FROM users WHERE email = ${session.user.email}`;
 
-	const lookupName = originalName || name;
+	let budgetId;
 
-	const [existingBudget] = await db`
-  SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${lookupName}`;
-
-	if (!existingBudget) {
-		return new Response("Original budget not found", { status: 404 });
-	}
-
-	// Check for name conflict if renaming
+	// 🚀 Case 1: Rename
 	if (originalName && originalName !== name) {
 		const [conflict] = await db`
-    SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+			SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
+		if (conflict) return new Response("Budget with this name already exists", { status: 400 });
 
-		if (conflict) {
-			return new Response("Budget with this name already exists", { status: 400 });
-		}
+		const [existing] = await db`
+			SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${originalName}`;
+		if (!existing) return new Response("Original budget not found", { status: 404 });
 
-		// Safe to rename
 		await db`
-    UPDATE budgets
-    SET name = ${name}
-    WHERE id = ${existingBudget.id}`;
+			UPDATE budgets SET name = ${name} WHERE id = ${existing.id}`;
+
+		budgetId = existing.id;
+
+		await db`
+			UPDATE budgets
+			SET is_retired = ${isRetired}, total_assets = ${totalAssets}
+			WHERE id = ${budgetId}`;
 	}
 
-	await db`
-  UPDATE budgets
-  SET is_retired = ${isRetired}, total_assets = ${totalAssets}
-  WHERE id = ${existingBudget.id}`;
+	// 🚀 Case 2 or 3: Create new or update existing
+	if (!budgetId) {
+		const [existing] = await db`
+			SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
 
-	const budgetId = existingBudget.id;
+		if (existing) {
+			budgetId = existing.id;
 
+			await db`
+				UPDATE budgets
+				SET is_retired = ${isRetired}, total_assets = ${totalAssets}
+				WHERE id = ${budgetId}`;
+		} else {
+			const [created] = await db`
+				INSERT INTO budgets (user_id, name, is_retired, total_assets)
+				VALUES (${userId}, ${name}, ${isRetired}, ${totalAssets})
+				RETURNING id`;
 
+			budgetId = created.id;
+		}
+	}
+
+	// 🔁 Upsert items
 	const existingItems = await db`
 		SELECT category, monthly_amount, yearly_amount, type FROM budget_items WHERE budget_id = ${budgetId}`;
 
@@ -163,3 +176,4 @@ export async function POST(req: Request) {
 
 	return new Response("Saved", { status: 200 });
 }
+
