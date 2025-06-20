@@ -32,6 +32,11 @@ export default function BudgetCreator() {
   const [renameSuccess, setRenameSuccess] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
+  const [focusedField, setFocusedField] = useState<{
+    index: number;
+    field: "monthlyAmount" | "yearlyAmount" | null;
+  } | null>(null);
+
   useEffect(() => {
     if (isEditingName || !newName.trim()) return;
 
@@ -215,11 +220,21 @@ export default function BudgetCreator() {
       if (field === "monthlyAmount") {
         item.monthlyAmount = value;
         const monthly = parseFloat(value);
-        item.yearlyAmount = !isNaN(monthly) ? (monthly * 12).toFixed(2) : "";
+        if (
+          !isNaN(monthly) &&
+          (!focusedField || focusedField.index !== index || focusedField.field === "monthlyAmount")
+        ) {
+          item.yearlyAmount = (monthly * 12).toFixed(2);
+        }
       } else if (field === "yearlyAmount") {
         item.yearlyAmount = value;
         const yearly = parseFloat(value);
-        item.monthlyAmount = !isNaN(yearly) ? (yearly / 12).toFixed(2) : "";
+        if (
+          !isNaN(yearly) &&
+          (!focusedField || focusedField.index !== index || focusedField.field === "yearlyAmount")
+        ) {
+          item.monthlyAmount = (yearly / 12).toFixed(2);
+        }
       } else if (field === "category") {
         item.category = value;
         if (value === "Net Income") {
@@ -488,6 +503,8 @@ export default function BudgetCreator() {
                       decimalScale={2}
                       fixedDecimalScale
                       allowNegative={false}
+                      onFocus={() => setFocusedField({ index, field: "monthlyAmount" })}
+                      onBlur={() => setFocusedField(null)}
                       onValueChange={(values) => {
                         const { floatValue } = values;
                         if (floatValue !== undefined) {
@@ -503,6 +520,8 @@ export default function BudgetCreator() {
                       decimalScale={2}
                       fixedDecimalScale
                       allowNegative={false}
+                      onFocus={() => setFocusedField({ index, field: "yearlyAmount" })}
+                      onBlur={() => setFocusedField(null)}
                       onValueChange={(values) => {
                         const { floatValue } = values;
                         if (floatValue !== undefined) {
