@@ -341,7 +341,7 @@ export default function BudgetCreator() {
             </div>
 
             <div className="space-y-2">
-              <div className="grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
                 <div>Type</div>
                 <div>Category</div>
                 <div>Monthly</div>
@@ -351,7 +351,8 @@ export default function BudgetCreator() {
               {items.map((item, index) => {
                 const isIncome = item.category === "Net Income";
                 return (
-                  <div key={index} className="grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center">
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center border p-3 rounded-md">
+                    <div className="md:hidden text-xs text-gray-500">Type</div>
                     <select
                       value={item.type}
                       onChange={(e) => handleChange(index, "type", e.target.value)}
@@ -383,7 +384,7 @@ export default function BudgetCreator() {
                           handleChange(index, "monthlyAmount", floatValue.toString());
                         }
                       }}
-                      className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
                     />
                     <NumericFormat
                       value={item.yearlyAmount}
@@ -398,7 +399,7 @@ export default function BudgetCreator() {
                           handleChange(index, "yearlyAmount", floatValue.toString());
                         }
                       }}
-                      className={`border px-1 py-1 w-full text-left truncate ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
                     />                    <button
                       type="button"
                       onClick={() => handleDeleteItem(index, item.category)}
