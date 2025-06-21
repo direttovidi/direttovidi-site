@@ -109,31 +109,31 @@ export default function BudgetList() {
 								<div className="space-y-1">
 									{b.isRetired ? (
 										<>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Total WR</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Total WR</span>
 												<span><strong>{((b.expenses / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Needs WR</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Needs WR</span>
 												<span><strong>{((b.needs / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Wants WR</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Wants WR</span>
 												<span><strong>{((b.wants / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
 										</>
 									) : (
 										<>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Needs</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Needs</span>
 												<span><strong>{((b.needs / (b.income || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Wants</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Wants</span>
 												<span><strong>{((b.wants / (b.income || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
-											<div className="flex md:block items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
-												<span className="md:hidden w-20 text-gray-500">Saved</span>
+											<div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+												<span className="w-20 text-gray-500">Saved</span>
 												<span><strong>{(((b.income - b.needs - b.wants) / (b.income || 1)) * 100).toFixed(2)}%</strong></span>
 											</div>
 										</>
