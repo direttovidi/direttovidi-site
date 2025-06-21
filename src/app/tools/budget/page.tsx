@@ -42,53 +42,53 @@ export default function BudgetCreator() {
 
     const timeout = setTimeout(() => {
       (async () => {
-      const filteredItems = items.filter(
-        (item) =>
-          item.category.trim() !== "" &&
-          item.monthlyAmount.trim() !== "" &&
-          item.yearlyAmount.trim() !== ""
-      );
+        const filteredItems = items.filter(
+          (item) =>
+            item.category.trim() !== "" &&
+            item.monthlyAmount.trim() !== "" &&
+            item.yearlyAmount.trim() !== ""
+        );
 
-      if (filteredItems.length === 0) return;
+        if (filteredItems.length === 0) return;
 
-      // 🔐 prevent redundant call if nothing changed
-      const isRename = newName !== currentName;
+        // 🔐 prevent redundant call if nothing changed
+        const isRename = newName !== currentName;
 
-      if (!isRename && !itemsChangedSinceLastSave()) return;
+        if (!isRename && !itemsChangedSinceLastSave()) return;
 
-      const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
-        category,
-        monthlyAmount,
-        yearlyAmount,
-        type,
-      }));
+        const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+          category,
+          monthlyAmount,
+          yearlyAmount,
+          type,
+        }));
 
-      try {
-        const res = await fetch("/api/tools/budget", {
-          method: "POST",
-          body: JSON.stringify({
-            name: newName,
-            originalName: currentName,
-            items: normalizedItems,
-            isRetired,
-            totalAssets,
-          }),
-          headers: { "Content-Type": "application/json" },
-        });
+        try {
+          const res = await fetch("/api/tools/budget", {
+            method: "POST",
+            body: JSON.stringify({
+              name: newName,
+              originalName: currentName,
+              items: normalizedItems,
+              isRetired,
+              totalAssets,
+            }),
+            headers: { "Content-Type": "application/json" },
+          });
 
-        if (res.ok) {
-          // ✅ Only update sidebar when save is confirmed
-          const historyRes = await fetch("/api/tools/budgets");
-          if (historyRes.ok) {
-            const data = await historyRes.json();
-            const names = data.budgets.map((b: any) => b.name);
-            setHistory(names);
+          if (res.ok) {
+            // ✅ Only update sidebar when save is confirmed
+            const historyRes = await fetch("/api/tools/budgets");
+            if (historyRes.ok) {
+              const data = await historyRes.json();
+              const names = data.budgets.map((b: any) => b.name);
+              setHistory(names);
+            }
           }
+        } catch (err) {
+          console.error("Autosave failed", err);
         }
-      } catch (err) {
-        console.error("Autosave failed", err);
-      }
-    })();
+      })();
     }, 800);
 
     return () => clearTimeout(timeout);
@@ -381,6 +381,49 @@ export default function BudgetCreator() {
     setNewBudgetName(""); // Clear input after creating
   };
 
+  const income = items
+    .filter((item) => item.type === "Income")
+    .reduce((sum, item) => sum + parseFloat(item.monthlyAmount || "0"), 0);
+
+  const needs = items
+    .filter((item) => item.type === "Need")
+    .reduce((sum, item) => sum + parseFloat(item.monthlyAmount || "0"), 0);
+
+  const wants = items
+    .filter((item) => item.type === "Want")
+    .reduce((sum, item) => sum + parseFloat(item.monthlyAmount || "0"), 0);
+
+  const monthlyTotal = needs + wants;
+  const yearlyTotal = monthlyTotal * 12;
+
+  const withdrawalRate = totalAssets
+    ? (yearlyTotal / parseFloat(totalAssets)) * 100
+    : 0;
+
+  const needsWithdrawalRate = totalAssets
+    ? (needs * 12 / parseFloat(totalAssets)) * 100
+    : 0;
+
+  const wantsWithdrawalRate = totalAssets
+    ? (wants * 12 / parseFloat(totalAssets)) * 100
+    : 0;
+
+  const totalIncome = items
+    .filter((i) => i.type === "Income")
+    .reduce((sum, i) => sum + parseFloat(i.yearlyAmount || "0"), 0);
+
+  const totalExpenses = items
+    .filter((i) => i.type !== "Income")
+    .reduce((sum, i) => sum + parseFloat(i.yearlyAmount || "0"), 0);
+
+  const totalMonthlyExpenses = items
+    .filter((i) => i.type !== "Income")
+    .reduce((sum, i) => sum + parseFloat(i.monthlyAmount || "0"), 0);
+
+  const needsPct = income > 0 ? (needs / income) * 100 : 0;
+  const wantsPct = income > 0 ? (wants / income) * 100 : 0;
+  const savePct = income > 0 ? 100 - needsPct - wantsPct : 0;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -446,9 +489,153 @@ export default function BudgetCreator() {
         </ul>
       </aside>
       <main className="flex-1 px-7 py-6 flex justify-left">
-        <div className="w-full px-2 sm:px-0 max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center gap-6 mb-4">
+        <div className="flex flex-row gap-8 items-start">
+
+          {/* Budget Section */}
+          <div className="w-full px-2 sm:px-0 max-w-2xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
+
+              {/* Budget Name Editing */}
+              <div className="inline-flex text-lg font-semibold items-center gap-2">
+                {isEditingName ? (
+                  <input
+                    ref={nameInputRef}
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onBlur={async () => {
+                      await applyRename();
+                      setIsEditingName(false);
+                    }}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        await applyRename();
+                        setIsEditingName(false);
+                      }
+                    }}
+                    className="border-b border-gray-400 focus:outline-none focus:border-blue-500 text-lg font-semibold bg-transparent"
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    onClick={() => {
+                      setIsEditingName(true);
+                      setTimeout(() => nameInputRef.current?.select(), 0);
+                    }}
+                    className="cursor-pointer hover:underline"
+                    title="Click to rename"
+                  >
+                    <span>Editing Budget: {renameSuccess ? newName : name}</span>
+                  </div>
+                )}
+
+                {renaming && (
+                  <span className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                )}
+              </div>
+
+              {/* Budget Grid */}
+              <div className="space-y-2">
+                <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                  <div>Type</div>
+                  <div>Category</div>
+                  <div>Monthly</div>
+                  <div>Yearly</div>
+                  <div />
+                </div>
+
+                {items.map((item, index) => {
+                  const isIncome = item.category === "Net Income";
+                  return (
+                    <div
+                      key={index}
+                      className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center border p-3 rounded-md"
+                    >
+                      <div className="md:hidden text-xs text-gray-500">Type</div>
+                      <select
+                        value={item.type}
+                        onChange={(e) => handleChange(index, "type", e.target.value)}
+                        className="border px-2 py-1 w-full"
+                        disabled={isIncome}
+                      >
+                        <option value="Need">Need</option>
+                        <option value="Want">Want</option>
+                        <option value="Income">Income</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Category"
+                        value={item.category}
+                        onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
+                        className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
+                        readOnly={isIncome}
+                      />
+                      <NumericFormat
+                        value={item.monthlyAmount}
+                        thousandSeparator
+                        prefix="$"
+                        decimalScale={2}
+                        fixedDecimalScale
+                        allowNegative={false}
+                        onFocus={() => setFocusedField({ index, field: "monthlyAmount" })}
+                        onBlur={() => setFocusedField(null)}
+                        onValueChange={(values) => {
+                          const { floatValue } = values;
+                          if (floatValue !== undefined) {
+                            handleChange(index, "monthlyAmount", floatValue.toString());
+                          }
+                        }}
+                        className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      />
+                      <NumericFormat
+                        value={item.yearlyAmount}
+                        thousandSeparator
+                        prefix="$"
+                        decimalScale={2}
+                        fixedDecimalScale
+                        allowNegative={false}
+                        onFocus={() => setFocusedField({ index, field: "yearlyAmount" })}
+                        onBlur={() => setFocusedField(null)}
+                        onValueChange={(values) => {
+                          const { floatValue } = values;
+                          if (floatValue !== undefined) {
+                            handleChange(index, "yearlyAmount", floatValue.toString());
+                          }
+                        }}
+                        className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(index, item.category)}
+                        className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
+                        disabled={isIncome}
+                        title={isIncome ? "Cannot delete Net Income" : ""}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={handleAddRow}
+                  className={`text-sm underline ${name
+                    ? "text-blue-600 hover:text-blue-800"
+                    : "text-gray-400 cursor-not-allowed"
+                    }`}
+                  disabled={!name}
+                >
+                  + Add Category
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Analysis Panel with Retirement Controls */}
+          <div className="w-[300px] border rounded-md p-4 shadow-sm bg-white dark:bg-gray-900 sticky top-6 self-start">
+            {/* Retirement Controls */}
+            <div className="flex flex-col gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <label htmlFor="isRetired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Retired?
@@ -461,8 +648,8 @@ export default function BudgetCreator() {
                   className="h-4 w-4"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex flex-col">
+                <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Total Assets
                 </label>
                 <NumericFormat
@@ -479,139 +666,35 @@ export default function BudgetCreator() {
                       setTotalAssets(floatValue.toString());
                     }
                   }}
-                  className="border px-2 py-1 w-40"
+                  className="border px-2 py-1 w-full"
                   placeholder="e.g. 1,500,000"
                 />
               </div>
             </div>
-            <div className="inline-flex text-lg font-semibold items-center gap-2">
-              {isEditingName ? (
-                <input
-                  ref={nameInputRef}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onBlur={async () => {
-                    await applyRename();
-                    setIsEditingName(false);
-                  }}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      await applyRename();
-                      setIsEditingName(false);
-                    }
-                  }}
-                  className="border-b border-gray-400 focus:outline-none focus:border-blue-500 text-lg font-semibold bg-transparent"
-                  autoFocus
-                />
+
+            {/* Analysis Results */}
+            <h3 className="text-md font-semibold mb-2">
+              {isRetired ? "Retirement Metrics" : "Income Allocation"}
+            </h3>
+            <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+              <li>Total Income: <strong>${totalIncome.toLocaleString()}</strong></li>
+              <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
+              <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
+              {isRetired ? (
+                <>
+                  <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(1)}%</strong></li>
+                  <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(1)}%</strong></li>
+                  <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(1)}%</strong></li>
+                </>
               ) : (
-                <div
-                  onClick={() => {
-                    setIsEditingName(true);
-                    setTimeout(() => nameInputRef.current?.select(), 0);
-                  }}
-                  className="cursor-pointer hover:underline"
-                  title="Click to rename"
-                >
-                  <span>Editing Budget: {renameSuccess ? newName : name}</span>
-                </div>
+                <>
+                  <li>Needs: <strong>{needsPct.toFixed(1)}%</strong> of income</li>
+                  <li>Wants: <strong>{wantsPct.toFixed(1)}%</strong> of income</li>
+                  <li>Leftover to Save: <strong>{savePct.toFixed(1)}%</strong></li>
+                </>
               )}
-
-              {/* ✅ Always show spinner here, not just while editing */}
-              {renaming && (
-                <span className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                <div>Type</div>
-                <div>Category</div>
-                <div>Monthly</div>
-                <div>Yearly</div>
-                <div />
-              </div>
-              {items.map((item, index) => {
-                const isIncome = item.category === "Net Income";
-                return (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center border p-3 rounded-md">
-                    <div className="md:hidden text-xs text-gray-500">Type</div>
-                    <select
-                      value={item.type}
-                      onChange={(e) => handleChange(index, "type", e.target.value)}
-                      className="border px-2 py-1 w-full"
-                      disabled={isIncome}
-                    >
-                      <option value="Need">Need</option>
-                      <option value="Want">Want</option>
-                      <option value="Income">Income</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Category"
-                      value={item.category}
-                      onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
-                      className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
-                      readOnly={isIncome}
-                    />
-                    <NumericFormat
-                      value={item.monthlyAmount}
-                      thousandSeparator
-                      prefix="$"
-                      decimalScale={2}
-                      fixedDecimalScale
-                      allowNegative={false}
-                      onFocus={() => setFocusedField({ index, field: "monthlyAmount" })}
-                      onBlur={() => setFocusedField(null)}
-                      onValueChange={(values) => {
-                        const { floatValue } = values;
-                        if (floatValue !== undefined) {
-                          handleChange(index, "monthlyAmount", floatValue.toString());
-                        }
-                      }}
-                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
-                    />
-                    <NumericFormat
-                      value={item.yearlyAmount}
-                      thousandSeparator
-                      prefix="$"
-                      decimalScale={2}
-                      fixedDecimalScale
-                      allowNegative={false}
-                      onFocus={() => setFocusedField({ index, field: "yearlyAmount" })}
-                      onBlur={() => setFocusedField(null)}
-                      onValueChange={(values) => {
-                        const { floatValue } = values;
-                        if (floatValue !== undefined) {
-                          handleChange(index, "yearlyAmount", floatValue.toString());
-                        }
-                      }}
-                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
-                    />                    <button
-                      type="button"
-                      onClick={() => handleDeleteItem(index, item.category)}
-                      className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
-                      disabled={isIncome}
-                      title={isIncome ? "Cannot delete Net Income" : ""}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={handleAddRow}
-                className={`text-sm underline ${name
-                  ? "text-blue-600 hover:text-blue-800"
-                  : "text-gray-400 cursor-not-allowed"
-                  }`}
-                disabled={!name}
-              >
-                + Add Category
-              </button>
-            </div>
-          </form>
+            </ul>
+          </div>
         </div>
       </main>
     </div>
