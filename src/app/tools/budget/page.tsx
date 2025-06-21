@@ -31,6 +31,10 @@ export default function BudgetCreator() {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [renameSuccess, setRenameSuccess] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [sidebarMode, setSidebarMode] = useState<"create" | "import">("create");
+  const [importParsed, setImportParsed] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const [focusedField, setFocusedField] = useState<{
     index: number;
@@ -424,6 +428,125 @@ export default function BudgetCreator() {
   const wantsPct = income > 0 ? (wants / income) * 100 : 0;
   const savePct = income > 0 ? 100 - needsPct - wantsPct : 0;
 
+  const copyBudgetToClipboard = async () => {
+    const exportData = {
+      name,
+      isRetired,
+      totalAssets: totalAssets ? parseFloat(totalAssets) : null,
+      items: items.map((item) => ({
+        category: item.category,
+        type: item.type,
+        monthlyAmount: parseFloat(item.monthlyAmount || "0"),
+        yearlyAmount: parseFloat(item.yearlyAmount || "0"),
+      })),
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+      alert("Budget copied to clipboard. Paste it into ChatGPT to analyze or modify.");
+    } catch (err) {
+      console.error("Copy failed:", err);
+      alert("Failed to copy to clipboard. Please try again.");
+    }
+  };
+
+  const handleImportJson = async () => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (!parsed || !parsed.items || !Array.isArray(parsed.items)) {
+        alert("Invalid format: missing items array.");
+        return;
+      }
+
+      const name = newBudgetName.trim();
+      if (!name) {
+        alert("Enter a name for the imported budget.");
+        return;
+      }
+
+      setImporting(true); // ⏳ Start spinner
+
+      const importedItems: BudgetItem[] = parsed.items.map((item: any) => ({
+        category: item.category,
+        monthlyAmount: item.monthlyAmount?.toString() || "",
+        yearlyAmount: item.yearlyAmount?.toString() || "",
+        type: item.type,
+      }));
+
+      // Ensure Net Income is first
+      const netIncomeItem = importedItems.find((i) => i.category === "Net Income") ?? {
+        category: "Net Income",
+        monthlyAmount: "",
+        yearlyAmount: "",
+        type: "Income",
+      };
+
+      const otherItems = importedItems.filter((i) => i.category !== "Net Income");
+      const allItems = [netIncomeItem, ...otherItems];
+
+      // Save to server
+      const saveRes = await fetch("/api/tools/budget", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          originalName: "", // always treat as new
+          items: allItems,
+          isRetired: parsed.isRetired || false,
+          totalAssets: parsed.totalAssets ?? null,
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!saveRes.ok) {
+        const errorText = await saveRes.text();
+        throw new Error("Failed to import: " + errorText);
+      }
+
+      // Update state to show imported budget
+      setItems(allItems);
+      setName(name);
+      setCurrentName(name);
+      setNewName(name);
+      setIsRetired(parsed.isRetired || false);
+      setTotalAssets(parsed.totalAssets?.toString() || "");
+
+      // Fetch updated history for sidebar
+      const historyRes = await fetch("/api/tools/budgets");
+      if (historyRes.ok) {
+        const data = await historyRes.json();
+        const names = data.budgets.map((b: any) => b.name);
+        setHistory(names);
+      }
+
+      // ✅ Clean up import UI state
+      setImportText("");
+      setImportParsed(false);
+      setNewBudgetName("");
+      setSidebarMode("create"); // switch back to normal view
+
+    } catch (err) {
+      alert("Failed to import. Please make sure it's valid JSON.");
+      console.error(err);
+    } finally {
+      setImporting(false); // ⏹️ Stop spinner
+    }
+  };
+
+
+  const handleParseImportJson = () => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (!parsed || !parsed.items || !Array.isArray(parsed.items)) {
+        alert("Invalid format: missing items array.");
+        return;
+      }
+      setImportParsed(parsed); // store the valid JSON
+      setNewBudgetName(parsed.name || ""); // pre-fill name if available
+    } catch (err) {
+      alert("Invalid JSON.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -436,48 +559,138 @@ export default function BudgetCreator() {
     <div className="flex flex-col lg:flex-row">
       {/* Sidebar */}
       <aside className="w-full lg:w-64 border-t lg:border-t-0 lg:border-r p-4 order-3 lg:order-1">
-        <h2 className="font-semibold mb-2 text-center">Create New Budget</h2>
-        <input
-          type="text"
-          placeholder="Enter budget name"
-          value={newBudgetName}
-          onChange={(e) => setNewBudgetName(e.target.value)}
-          className="border px-2 py-1 w-full mb-2"
-        />
+        {/* Toggle Buttons */}
+        {/* Tab-style toggle buttons */}
+        <div className="mb-4 border-b border-gray-300 dark:border-gray-700">
+          <nav className="flex">
+            <button
+              onClick={() => setSidebarMode("create")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-150 ${sidebarMode === "create"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                }`}
+            >
+              + Create New
+            </button>
+            <button
+              onClick={() => setSidebarMode("import")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-150 ${sidebarMode === "import"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                }`}
+            >
+              ⇪ Import
+            </button>
+          </nav>
+        </div>
+
+        {/* Copy Button (Always visible) */}
         <button
-          onClick={handleCreateNew}
-          disabled={!newBudgetName.trim() || history.includes(newBudgetName)}
-          className={`w-full px-3 py-1 mb-4 rounded text-white ${!newBudgetName.trim() || history.includes(newBudgetName)
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-green-600 hover:bg-green-700"
-            }`}
+          onClick={copyBudgetToClipboard}
+          className="mb-4 w-full px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
         >
-          Create
+          Copy Budget To Clipboard
         </button>
 
-        <div className="text-sm font-semibold text-gray-500 text-center mb-2">OR</div>
+        {/* Import Section */}
+        {sidebarMode === "import" && (
+          <div className="mt-4">
+            {!importParsed ? (
+              <>
+                <label htmlFor="importJson" className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Paste Copied Budget JSON
+                </label>
+                <textarea
+                  id="importJson"
+                  rows={6}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  className="w-full border p-2 rounded text-sm"
+                  placeholder='Paste here...'
+                />
+                <button
+                  onClick={handleParseImportJson}
+                  className="mt-2 px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 w-full"
+                >
+                  Next
+                </button>
+              </>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Imported Budget Name
+                </label>
+                <input
+                  type="text"
+                  value={newBudgetName}
+                  onChange={(e) => setNewBudgetName(e.target.value)}
+                  className="border px-2 py-1 w-full mb-2"
+                  placeholder="Enter a name for the imported budget"
+                />
+                <button
+                  onClick={handleImportJson}
+                  disabled={importing}
+                  className={`w-full px-3 py-1 rounded text-white flex justify-center items-center gap-2
+                    ${importing ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                >
+                  {importing && (
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  )}
+                  Import Budget
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
-        <select
-          value={copyFrom}
-          onChange={(e) => setCopyFrom(e.target.value)}
-          className="border px-2 py-1 w-full mb-2"
-        >
-          <option value="">Select existing budget...</option>
-          {history.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-        <button
-          onClick={handleCopyFrom}
-          disabled={!copyFrom.trim() || history.includes(newBudgetName)}
-          className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName)
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-green-600 hover:bg-green-700"
-            }`}
-        >
-          Copy From Existing
-        </button>
+        {/* Create Section */}
+        {sidebarMode === "create" && (
+          <>
+            <h2 className="font-semibold mb-2 text-center">Create New Budget</h2>
+            <input
+              type="text"
+              placeholder="Enter budget name"
+              value={newBudgetName}
+              onChange={(e) => setNewBudgetName(e.target.value)}
+              className="border px-2 py-1 w-full mb-2"
+            />
+            <button
+              onClick={handleCreateNew}
+              disabled={!newBudgetName.trim() || history.includes(newBudgetName)}
+              className={`w-full px-3 py-1 mb-4 rounded text-white ${!newBudgetName.trim() || history.includes(newBudgetName)
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+                }`}
+            >
+              Create
+            </button>
 
+            <div className="text-sm font-semibold text-gray-500 text-center mb-2">OR</div>
+
+            <select
+              value={copyFrom}
+              onChange={(e) => setCopyFrom(e.target.value)}
+              className="border px-2 py-1 w-full mb-2"
+            >
+              <option value="">Select existing budget...</option>
+              {history.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleCopyFrom}
+              disabled={!copyFrom.trim() || history.includes(newBudgetName)}
+              className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName)
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+                }`}
+            >
+              Copy From Existing
+            </button>
+          </>
+        )}
+
+        {/* Always Show Budget History */}
         <h2 className="font-semibold mb-2 text-center">Existing Budgets</h2>
         <ul className="space-y-2">
           {history.map((b) => (
@@ -488,6 +701,7 @@ export default function BudgetCreator() {
             </li>
           ))}
         </ul>
+
       </aside>
 
       {/* Main Content Area */}
@@ -676,6 +890,12 @@ export default function BudgetCreator() {
             <li>Total Income: <strong>${totalIncome.toLocaleString()}</strong></li>
             <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
             <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
+            <li>
+              Needs: <strong>${needs.toLocaleString()}</strong>/mo • <strong>${(needs * 12).toLocaleString()}</strong>/yr
+            </li>
+            <li>
+              Wants: <strong>${wants.toLocaleString()}</strong>/mo • <strong>${(wants * 12).toLocaleString()}</strong>/yr
+            </li>
             {isRetired ? (
               <>
                 <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
