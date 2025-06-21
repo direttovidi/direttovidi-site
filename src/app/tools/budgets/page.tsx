@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import {formatCurrency} from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 
 type BudgetSummary = {
 	id: string;
@@ -12,6 +12,10 @@ type BudgetSummary = {
 	modified_at: string | null;
 	income: number;
 	expenses: number;
+	needs: number;
+	wants: number;
+	isRetired: boolean;
+	totalAssets: number | null;
 };
 
 export default function BudgetList() {
@@ -45,13 +49,15 @@ export default function BudgetList() {
 	}
 
 	return (
-		<div className="max-w-xl mx-auto p-6 space-y-4">
+		<div className="max-w-5xl mx-auto p-6 space-y-4">
 			<h1 className="text-2xl font-bold mb-4">Your Budgets</h1>
 
-			<div className="grid grid-cols-4 font-semibold text-sm text-gray-700 dark:text-gray-300 border-b pb-2 mb-2">
+			<div className="grid grid-cols-6 font-semibold text-sm text-gray-700 dark:text-gray-300 border-b pb-2 mb-2 gap-x-4">
 				<div>Name</div>
-				<div>Net Income</div>
-				<div>Total Expenses</div>
+				<div>Net Income (Yearly)</div>
+				<div>Total Expenses (Yearly)</div>
+				<div>Retired</div> {/* ✅ Add this */}
+				<div>Metrics</div>
 				<div className="text-right">Last Modified</div>
 			</div>
 
@@ -61,7 +67,7 @@ export default function BudgetList() {
 				budgets.map((b) => (
 					<div
 						key={b.id}
-						className="grid grid-cols-4 py-2 border-b hover:bg-gray-50 dark:hover:bg-slate-800 items-center"
+						className="grid grid-cols-6 py-2 border-b hover:bg-gray-50 dark:hover:bg-slate-800 items-center gap-x-4"
 					>
 						<Link
 							href={`/tools/budget?name=${encodeURIComponent(b.name)}`}
@@ -69,8 +75,31 @@ export default function BudgetList() {
 						>
 							{b.name}
 						</Link>
+
 						<div className="text-green-600">{formatCurrency(b.income)}</div>
 						<div className="text-red-600">{formatCurrency(Math.abs(b.expenses))}</div>
+						<div className="text-sm">
+							{b.isRetired ? "Yes" : "No"}
+						</div>
+
+						{/* ✅ Metrics Column */}
+						<div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+							{b.isRetired ? (
+								<>
+									<div>Total WR: <strong>{((b.expenses / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Needs WR: <strong>{((b.needs / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Wants WR: <strong>{((b.wants / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Total Assets: <strong>{formatCurrency(b.totalAssets || 0)}</strong></div> {/* ✅ Add this */}
+								</>
+							) : (
+								<>
+									<div>Needs: <strong>{((b.needs / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Wants: <strong>{((b.wants / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Saved: <strong>{(((b.income - b.needs - b.wants) / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
+								</>
+							)}
+						</div>
+
 						<div className="flex justify-end gap-2 items-center text-xs text-gray-500">
 							<span>
 								{new Date(b.modified_at || b.created_at).toLocaleDateString()}

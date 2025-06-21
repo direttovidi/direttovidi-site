@@ -682,9 +682,9 @@ export default function BudgetCreator() {
               <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
               {isRetired ? (
                 <>
-                  <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(1)}%</strong></li>
-                  <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(1)}%</strong></li>
-                  <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(1)}%</strong></li>
+                  <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
+                  <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(2)}%</strong></li>
+                  <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(2)}%</strong></li>
                 </>
               ) : (
                 <>
