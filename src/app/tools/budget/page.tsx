@@ -433,8 +433,9 @@ export default function BudgetCreator() {
   }
 
   return (
-    <div className="flex">
-      <aside className="w-64 border-r p-4">
+    <div className="flex flex-col lg:flex-row">
+      {/* Sidebar */}
+      <aside className="w-full lg:w-64 border-t lg:border-t-0 lg:border-r p-4 order-3 lg:order-1">
         <h2 className="font-semibold mb-2 text-center">Create New Budget</h2>
         <input
           type="text"
@@ -488,213 +489,207 @@ export default function BudgetCreator() {
           ))}
         </ul>
       </aside>
-      <main className="flex-1 px-7 py-6 flex justify-left">
-        <div className="flex flex-row gap-8 items-start">
 
-          {/* Budget Section */}
-          <div className="w-full px-2 sm:px-0 max-w-2xl">
-            <form onSubmit={handleSubmit} className="space-y-6">
-
-              {/* Budget Name Editing */}
-              <div className="inline-flex text-lg font-semibold items-center gap-2">
-                {isEditingName ? (
-                  <input
-                    ref={nameInputRef}
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onBlur={async () => {
+      {/* Main Content Area */}
+      <main className="flex-1 px-4 py-6 flex flex-col lg:flex-row gap-6 order-2 lg:order-2">
+        {/* Budget Form Section */}
+        <div className="w-full lg:max-w-2xl order-2 lg:order-2">
+          {/* Inline editing header */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="inline-flex text-lg font-semibold items-center gap-2">
+              {isEditingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={async () => {
+                    await applyRename();
+                    setIsEditingName(false);
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
                       await applyRename();
                       setIsEditingName(false);
-                    }}
-                    onKeyDown={async (e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        await applyRename();
-                        setIsEditingName(false);
-                      }
-                    }}
-                    className="border-b border-gray-400 focus:outline-none focus:border-blue-500 text-lg font-semibold bg-transparent"
-                    autoFocus
-                  />
-                ) : (
-                  <div
-                    onClick={() => {
-                      setIsEditingName(true);
-                      setTimeout(() => nameInputRef.current?.select(), 0);
-                    }}
-                    className="cursor-pointer hover:underline"
-                    title="Click to rename"
-                  >
-                    <span>Editing Budget: {renameSuccess ? newName : name}</span>
-                  </div>
-                )}
-
-                {renaming && (
-                  <span className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-                )}
-              </div>
-
-              {/* Budget Grid */}
-              <div className="space-y-2">
-                <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                  <div>Type</div>
-                  <div>Category</div>
-                  <div>Monthly</div>
-                  <div>Yearly</div>
-                  <div />
-                </div>
-
-                {items.map((item, index) => {
-                  const isIncome = item.category === "Net Income";
-                  return (
-                    <div
-                      key={index}
-                      className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 items-center border p-2 rounded-md"
-                    >
-                      <div className="md:hidden text-xs text-gray-500">Type</div>
-                      <select
-                        value={item.type}
-                        onChange={(e) => handleChange(index, "type", e.target.value)}
-                        className="border px-2 py-1 w-full"
-                        disabled={isIncome}
-                      >
-                        <option value="Need">Need</option>
-                        <option value="Want">Want</option>
-                        <option value="Income">Income</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Category"
-                        value={item.category}
-                        onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
-                        className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
-                        readOnly={isIncome}
-                      />
-                      <NumericFormat
-                        value={item.monthlyAmount}
-                        thousandSeparator
-                        prefix="$"
-                        decimalScale={2}
-                        fixedDecimalScale
-                        allowNegative={false}
-                        onFocus={() => setFocusedField({ index, field: "monthlyAmount" })}
-                        onBlur={() => setFocusedField(null)}
-                        onValueChange={(values) => {
-                          const { floatValue } = values;
-                          if (floatValue !== undefined) {
-                            handleChange(index, "monthlyAmount", floatValue.toString());
-                          }
-                        }}
-                        className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
-                      />
-                      <NumericFormat
-                        value={item.yearlyAmount}
-                        thousandSeparator
-                        prefix="$"
-                        decimalScale={2}
-                        fixedDecimalScale
-                        allowNegative={false}
-                        onFocus={() => setFocusedField({ index, field: "yearlyAmount" })}
-                        onBlur={() => setFocusedField(null)}
-                        onValueChange={(values) => {
-                          const { floatValue } = values;
-                          if (floatValue !== undefined) {
-                            handleChange(index, "yearlyAmount", floatValue.toString());
-                          }
-                        }}
-                        className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(index, item.category)}
-                        className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
-                        disabled={isIncome}
-                        title={isIncome ? "Cannot delete Net Income" : ""}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className={`text-sm underline ${name
-                    ? "text-blue-600 hover:text-blue-800"
-                    : "text-gray-400 cursor-not-allowed"
-                    }`}
-                  disabled={!name}
-                >
-                  + Add Category
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Analysis Panel with Retirement Controls */}
-          <div className="w-[300px] border rounded-md p-4 shadow-sm bg-white dark:bg-gray-900 sticky top-6 self-start">
-            {/* Retirement Controls */}
-            <div className="flex flex-col gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="isRetired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Retired?
-                </label>
-                <input
-                  id="isRetired"
-                  type="checkbox"
-                  checked={isRetired}
-                  onChange={() => setIsRetired(!isRetired)}
-                  className="h-4 w-4"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Total Assets
-                </label>
-                <NumericFormat
-                  id="totalAssets"
-                  value={totalAssets}
-                  thousandSeparator
-                  prefix="$"
-                  decimalScale={2}
-                  fixedDecimalScale
-                  allowNegative={false}
-                  onValueChange={(values) => {
-                    const { floatValue } = values;
-                    if (floatValue !== undefined) {
-                      setTotalAssets(floatValue.toString());
                     }
                   }}
-                  className="border px-2 py-1 w-full"
-                  placeholder="e.g. 1,500,000"
+                  className="border-b border-gray-400 focus:outline-none focus:border-blue-500 text-lg font-semibold bg-transparent"
+                  autoFocus
                 />
-              </div>
+              ) : (
+                <div
+                  onClick={() => {
+                    setIsEditingName(true);
+                    setTimeout(() => nameInputRef.current?.select(), 0);
+                  }}
+                  className="cursor-pointer hover:underline"
+                  title="Click to rename"
+                >
+                  <span>Editing Budget: {renameSuccess ? newName : name}</span>
+                </div>
+              )}
+              {renaming && (
+                <span className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+              )}
             </div>
 
-            {/* Analysis Results */}
-            <h3 className="text-md font-semibold mb-2">
-              {isRetired ? "Retirement Metrics" : "Income Allocation"}
-            </h3>
-            <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-              <li>Total Income: <strong>${totalIncome.toLocaleString()}</strong></li>
-              <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
-              <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
-              {isRetired ? (
-                <>
-                  <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
-                  <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(2)}%</strong></li>
-                  <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(2)}%</strong></li>
-                </>
-              ) : (
-                <>
-                  <li>Needs: <strong>{needsPct.toFixed(1)}%</strong> of income</li>
-                  <li>Wants: <strong>{wantsPct.toFixed(1)}%</strong> of income</li>
-                  <li>Leftover to Save: <strong>{savePct.toFixed(1)}%</strong></li>
-                </>
-              )}
-            </ul>
+            {/* Budget Grid */}
+            <div className="space-y-2">
+              <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                <div>Type</div>
+                <div>Category</div>
+                <div>Monthly</div>
+                <div>Yearly</div>
+                <div />
+              </div>
+
+              {items.map((item, index) => {
+                const isIncome = item.category === "Net Income";
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 items-center border p-2 rounded-md"
+                  >
+                    <div className="md:hidden text-xs text-gray-500">Type</div>
+                    <select
+                      value={item.type}
+                      onChange={(e) => handleChange(index, "type", e.target.value)}
+                      className="border px-2 py-1 w-full"
+                      disabled={isIncome}
+                    >
+                      <option value="Need">Need</option>
+                      <option value="Want">Want</option>
+                      <option value="Income">Income</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Category"
+                      value={item.category}
+                      onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
+                      className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
+                      readOnly={isIncome}
+                    />
+                    <NumericFormat
+                      value={item.monthlyAmount}
+                      thousandSeparator
+                      prefix="$"
+                      decimalScale={2}
+                      fixedDecimalScale
+                      allowNegative={false}
+                      onFocus={() => setFocusedField({ index, field: "monthlyAmount" })}
+                      onBlur={() => setFocusedField(null)}
+                      onValueChange={(values) => {
+                        const { floatValue } = values;
+                        if (floatValue !== undefined) {
+                          handleChange(index, "monthlyAmount", floatValue.toString());
+                        }
+                      }}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    />
+                    <NumericFormat
+                      value={item.yearlyAmount}
+                      thousandSeparator
+                      prefix="$"
+                      decimalScale={2}
+                      fixedDecimalScale
+                      allowNegative={false}
+                      onFocus={() => setFocusedField({ index, field: "yearlyAmount" })}
+                      onBlur={() => setFocusedField(null)}
+                      onValueChange={(values) => {
+                        const { floatValue } = values;
+                        if (floatValue !== undefined) {
+                          handleChange(index, "yearlyAmount", floatValue.toString());
+                        }
+                      }}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(index, item.category)}
+                      className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
+                      disabled={isIncome}
+                      title={isIncome ? "Cannot delete Net Income" : ""}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={handleAddRow}
+                className={`text-sm underline ${name ? "text-blue-600 hover:text-blue-800" : "text-gray-400 cursor-not-allowed"}`}
+                disabled={!name}
+              >
+                + Add Category
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Analysis Panel */}
+        <div className="w-full lg:w-[300px] shrink-0 lg:sticky top-4 self-start border rounded-md p-4 shadow-sm order-1 lg:order-3 bg-white dark:bg-gray-900">
+          {/* Retirement Controls */}
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="isRetired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Retired?
+              </label>
+              <input
+                id="isRetired"
+                type="checkbox"
+                checked={isRetired}
+                onChange={() => setIsRetired(!isRetired)}
+                className="h-4 w-4"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Total Assets
+              </label>
+              <NumericFormat
+                id="totalAssets"
+                value={totalAssets}
+                thousandSeparator
+                prefix="$"
+                decimalScale={2}
+                fixedDecimalScale
+                allowNegative={false}
+                onValueChange={(values) => {
+                  const { floatValue } = values;
+                  if (floatValue !== undefined) {
+                    setTotalAssets(floatValue.toString());
+                  }
+                }}
+                className="border px-2 py-1 w-full"
+                placeholder="e.g. 1,500,000"
+              />
+            </div>
           </div>
+
+          {/* Metrics */}
+          <h3 className="text-md font-semibold mb-2">
+            {isRetired ? "Retirement Metrics" : "Income Allocation"}
+          </h3>
+          <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+            <li>Total Income: <strong>${totalIncome.toLocaleString()}</strong></li>
+            <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
+            <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
+            {isRetired ? (
+              <>
+                <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
+                <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(2)}%</strong></li>
+                <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(2)}%</strong></li>
+              </>
+            ) : (
+              <>
+                <li>Needs: <strong>{needsPct.toFixed(1)}%</strong> of income</li>
+                <li>Wants: <strong>{wantsPct.toFixed(1)}%</strong> of income</li>
+                <li>Leftover to Save: <strong>{savePct.toFixed(1)}%</strong></li>
+              </>
+            )}
+          </ul>
         </div>
       </main>
     </div>
