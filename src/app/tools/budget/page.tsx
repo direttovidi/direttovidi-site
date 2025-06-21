@@ -536,7 +536,7 @@ export default function BudgetCreator() {
 
               {/* Budget Grid */}
               <div className="space-y-2">
-                <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                <div className="hidden md:grid grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 font-semibold text-sm text-gray-700 dark:text-gray-300">
                   <div>Type</div>
                   <div>Category</div>
                   <div>Monthly</div>
@@ -549,7 +549,7 @@ export default function BudgetCreator() {
                   return (
                     <div
                       key={index}
-                      className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-4 items-center border p-3 rounded-md"
+                      className="grid grid-cols-1 md:grid-cols-[3fr_6fr_4fr_4fr_auto] gap-3 items-center border p-2 rounded-md"
                     >
                       <div className="md:hidden text-xs text-gray-500">Type</div>
                       <select

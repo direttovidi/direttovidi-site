@@ -93,15 +93,15 @@ export default function BudgetList() {
 						<div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
 							{b.isRetired ? (
 								<>
-									<div>Total WR: <strong>{((b.expenses / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
-									<div>Needs WR: <strong>{((b.needs / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
-									<div>Wants WR: <strong>{((b.wants / (b.totalAssets || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Total WR: <strong>{((b.expenses / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></div>
+									<div>Needs WR: <strong>{((b.needs / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></div>
+									<div>Wants WR: <strong>{((b.wants / (b.totalAssets || 1)) * 100).toFixed(2)}%</strong></div>
 									<div>Total Assets: <strong>{formatCurrency(b.totalAssets || 0)}</strong></div>
 								</>
 							) : (
 								<>
-									<div>Needs: <strong>{((b.needs / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
-									<div>Wants: <strong>{((b.wants / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
+									<div>Needs: <strong>{((b.needs / (b.income || 1)) * 100).toFixed(2)}%</strong></div>
+									<div>Wants: <strong>{((b.wants / (b.income || 1)) * 100).toFixed(2)}%</strong></div>
 									<div>Saved: <strong>{(((b.income - b.needs - b.wants) / (b.income || 1)) * 100).toFixed(1)}%</strong></div>
 								</>
 							)}
