@@ -33,7 +33,15 @@ export default function BudgetCreator() {
   const [renaming, setRenaming] = useState(false);
   const [importText, setImportText] = useState("");
   const [sidebarMode, setSidebarMode] = useState<"create" | "import">("create");
-  const [importParsed, setImportParsed] = useState(false);
+
+  type ImportedBudget = {
+    name?: string;
+    items: BudgetItem[];
+    isRetired?: boolean;
+    totalAssets?: number | null;
+  };
+
+  const [importParsed, setImportParsed] = useState<ImportedBudget | null>(null);
   const [importing, setImporting] = useState(false);
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -448,6 +456,12 @@ export default function BudgetCreator() {
       await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+
+      setImportText("");
+      setImportParsed(null);
+      setNewBudgetName("");
+
+      setSidebarMode("import");
     } catch (err) {
       console.error("Copy failed:", err);
       alert("Failed to copy to clipboard. Please try again.");
@@ -456,6 +470,29 @@ export default function BudgetCreator() {
     }
   };
 
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (parsed && Array.isArray(parsed.items)) {
+        setImportParsed(parsed);
+
+        let baseName = parsed.name?.trim() || "Imported Budget";
+        let newName = baseName;
+        let suffix = 1;
+
+        while (history.includes(newName)) {
+          newName = `${baseName}-${suffix}`;
+          suffix++;
+        }
+
+        setNewBudgetName(newName);
+      } else {
+        setImportParsed(null);
+      }
+    } catch {
+      setImportParsed(null);
+    }
+  }, [importText, history]);
 
 
   const handleImportJson = async () => {
@@ -466,10 +503,14 @@ export default function BudgetCreator() {
         return;
       }
 
-      const name = newBudgetName.trim();
-      if (!name) {
-        alert("Enter a name for the imported budget.");
-        return;
+      let baseName = newBudgetName.trim() || "Imported Budget";
+      let uniqueName = baseName;
+      let counter = 1;
+
+      // Generate a unique name if there's a conflict
+      while (history.includes(uniqueName)) {
+        uniqueName = `${baseName}-${counter}`;
+        counter++;
       }
 
       setImporting(true); // ⏳ Start spinner
@@ -492,11 +533,10 @@ export default function BudgetCreator() {
       const otherItems = importedItems.filter((i) => i.category !== "Net Income");
       const allItems = [netIncomeItem, ...otherItems];
 
-      // Save to server
       const saveRes = await fetch("/api/tools/budget", {
         method: "POST",
         body: JSON.stringify({
-          name,
+          name: uniqueName,
           originalName: "", // always treat as new
           items: allItems,
           isRetired: parsed.isRetired || false,
@@ -510,15 +550,13 @@ export default function BudgetCreator() {
         throw new Error("Failed to import: " + errorText);
       }
 
-      // Update state to show imported budget
       setItems(allItems);
-      setName(name);
-      setCurrentName(name);
-      setNewName(name);
+      setName(uniqueName);
+      setCurrentName(uniqueName);
+      setNewName(uniqueName);
       setIsRetired(parsed.isRetired || false);
       setTotalAssets(parsed.totalAssets?.toString() || "");
 
-      // Fetch updated history for sidebar
       const historyRes = await fetch("/api/tools/budgets");
       if (historyRes.ok) {
         const data = await historyRes.json();
@@ -526,12 +564,10 @@ export default function BudgetCreator() {
         setHistory(names);
       }
 
-      // ✅ Clean up import UI state
       setImportText("");
-      setImportParsed(false);
+      setImportParsed(null);
       setNewBudgetName("");
-      setSidebarMode("create"); // switch back to normal view
-
+      setSidebarMode("create");
     } catch (err) {
       alert("Failed to import. Please make sure it's valid JSON.");
       console.error(err);
@@ -540,20 +576,6 @@ export default function BudgetCreator() {
     }
   };
 
-
-  const handleParseImportJson = () => {
-    try {
-      const parsed = JSON.parse(importText);
-      if (!parsed || !parsed.items || !Array.isArray(parsed.items)) {
-        alert("Invalid format: missing items array.");
-        return;
-      }
-      setImportParsed(parsed); // store the valid JSON
-      setNewBudgetName(parsed.name || ""); // pre-fill name if available
-    } catch (err) {
-      alert("Invalid JSON.");
-    }
-  };
 
   if (loading) {
     return (
@@ -616,7 +638,7 @@ export default function BudgetCreator() {
             {!importParsed ? (
               <>
                 <label htmlFor="importJson" className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Paste Copied Budget JSON
+                  Paste Budget (copied from ChatGPT)
                 </label>
                 <textarea
                   id="importJson"
@@ -624,38 +646,51 @@ export default function BudgetCreator() {
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   className="w-full border p-2 rounded text-sm"
-                  placeholder='Paste here...'
+                  placeholder='Paste budget here ...'
                 />
-                <button
-                  onClick={handleParseImportJson}
-                  className="mt-2 px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 w-full"
-                >
-                  Next
-                </button>
               </>
             ) : (
               <>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Imported Budget Name
-                </label>
-                <input
-                  type="text"
-                  value={newBudgetName}
-                  onChange={(e) => setNewBudgetName(e.target.value)}
-                  className="border px-2 py-1 w-full mb-2"
-                  placeholder="Enter a name for the imported budget"
-                />
-                <button
-                  onClick={handleImportJson}
-                  disabled={importing}
-                  className={`w-full px-3 py-1 rounded text-white flex justify-center items-center gap-2
-                    ${importing ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
-                >
-                  {importing && (
-                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  )}
-                  Import Budget
-                </button>
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    Budget detected: <strong>{newBudgetName || "Unnamed Budget"}</strong><br />
+                    Categories: <strong>{Array.isArray(importParsed.items) ? importParsed.items.length : 0}</strong>
+                  </p>
+
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Enter New Budget Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newBudgetName}
+                    onChange={(e) => setNewBudgetName(e.target.value)}
+                    className="border px-2 py-1 w-full mb-2"
+                    placeholder="Enter a new name"
+                  />
+
+                  <button
+                    onClick={handleImportJson}
+                    disabled={importing}
+                    className={`w-full px-3 py-1 rounded text-white flex justify-center items-center gap-2
+                      ${importing ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                  >
+                    {importing && (
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    )}
+                    Import Budget
+                  </button>
+                  <button
+                    onClick={() => {
+                      setImportText("");
+                      setImportParsed(null);
+                      setNewBudgetName("");
+                      setSidebarMode("create"); // optional
+                    }}
+                    className="mt-3 w-full px-3 py-1 border border-gray-400 rounded text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Cancel Import
+                  </button>
+                </>
               </>
             )}
           </div>
