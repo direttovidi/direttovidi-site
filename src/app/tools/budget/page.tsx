@@ -35,6 +35,8 @@ export default function BudgetCreator() {
   const [sidebarMode, setSidebarMode] = useState<"create" | "import">("create");
   const [importParsed, setImportParsed] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [focusedField, setFocusedField] = useState<{
     index: number;
@@ -442,13 +444,19 @@ export default function BudgetCreator() {
     };
 
     try {
+      setCopying(true);
       await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-      alert("Budget copied to clipboard. Paste it into ChatGPT to analyze or modify.");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Copy failed:", err);
       alert("Failed to copy to clipboard. Please try again.");
+    } finally {
+      setCopying(false);
     }
   };
+
+
 
   const handleImportJson = async () => {
     try {
@@ -587,9 +595,19 @@ export default function BudgetCreator() {
         {/* Copy Button (Always visible) */}
         <button
           onClick={copyBudgetToClipboard}
-          className="mb-4 w-full px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="mb-4 w-full px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 flex justify-center items-center gap-2"
+          disabled={copying}
         >
-          Copy Budget To Clipboard
+          {copying ? (
+            <>
+              <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Copying...
+            </>
+          ) : copied ? (
+            "Copied!"
+          ) : (
+            "Copy Budget To Clipboard"
+          )}
         </button>
 
         {/* Import Section */}
