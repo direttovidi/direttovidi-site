@@ -451,16 +451,24 @@ export default function BudgetCreator() {
       })),
     };
 
+    const promptText = `Here is my budget in JSON format. Please parse the data programmatically (not manually), calculate the total annual spending by summing all 'yearlyAmount' values, and provide:
+
+- Total annual spending  
+- Spending split by type ('Need', 'Want', 'Income')  
+- Withdrawal rate if I enter total assets  
+- A check that the sum of yearlyAmount fields matches the reported total. If not, please flag it clearly.
+`;
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const combined = `${promptText}\`\`\`json\n${jsonString}\n\`\`\``;
+
     try {
       setCopying(true);
-      await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+      await navigator.clipboard.writeText(combined);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
 
-      setImportText("");
-      setImportParsed(null);
-      setNewBudgetName("");
-
+      // Automatically switch to Import tab so user can paste right back in if desired
       setSidebarMode("import");
     } catch (err) {
       console.error("Copy failed:", err);
@@ -469,6 +477,7 @@ export default function BudgetCreator() {
       setCopying(false);
     }
   };
+
 
   useEffect(() => {
     try {
@@ -628,7 +637,7 @@ export default function BudgetCreator() {
           ) : copied ? (
             "Copied!"
           ) : (
-            "Copy Budget To Clipboard"
+            "Copy Budget For AI To Clipboard"
           )}
         </button>
 
