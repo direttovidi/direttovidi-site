@@ -65,7 +65,9 @@ export default function RetirementExplorePage() {
                 const cleaned = {
                     name: selectedBudget,
                     isRetired: data.budget?.is_retired ?? false,
-                    totalAssets: data.budget?.total_assets ?? null,
+                    assetsEquities: data.budget?.assets_equities ?? 0,
+                    assetsBonds: data.budget?.assets_bonds ?? 0,
+                    assetsCash: data.budget?.assets_cash ?? 0,
                     items: data.items,
                 };
                 setBudgetJson(JSON.stringify(cleaned, null, 2));
