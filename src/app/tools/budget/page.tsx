@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { NumericFormat } from 'react-number-format';
 
 export default function BudgetCreator() {
+  console.log('BudgetCreator rendered');
   type BudgetItem = {
     category: string;
     monthlyAmount: string;
@@ -438,45 +439,45 @@ export default function BudgetCreator() {
   const wantsPct = income > 0 ? (wants / income) * 100 : 0;
   const savePct = income > 0 ? 100 - needsPct - wantsPct : 0;
 
-  const copyBudgetToClipboard = async () => {
-    const exportData = {
-      name,
-      isRetired,
-      totalAssets: totalAssets ? parseFloat(totalAssets) : null,
-      items: items.map((item) => ({
-        category: item.category,
-        type: item.type,
-        monthlyAmount: parseFloat(item.monthlyAmount || "0"),
-        yearlyAmount: parseFloat(item.yearlyAmount || "0"),
-      })),
-    };
+//   const copyBudgetToClipboard = async () => {
+//     const exportData = {
+//       name,
+//       isRetired,
+//       totalAssets: totalAssets ? parseFloat(totalAssets) : null,
+//       items: items.map((item) => ({
+//         category: item.category,
+//         type: item.type,
+//         monthlyAmount: parseFloat(item.monthlyAmount || "0"),
+//         yearlyAmount: parseFloat(item.yearlyAmount || "0"),
+//       })),
+//     };
 
-    const promptText = `Here is my budget in JSON format. Please parse the data programmatically (not manually), calculate the total annual spending by summing all 'yearlyAmount' values, and provide:
+//     const promptText = `Here is my budget in JSON format. Please parse the data programmatically (not manually), calculate the total annual spending by summing all 'yearlyAmount' values, and provide:
 
-- Total annual spending  
-- Spending split by type ('Need', 'Want', 'Income')  
-- Withdrawal rate if I enter total assets  
-- A check that the sum of yearlyAmount fields matches the reported total. If not, please flag it clearly.
-`;
+// - Total annual spending  
+// - Spending split by type ('Need', 'Want', 'Income')  
+// - Withdrawal rate if I enter total assets  
+// - A check that the sum of yearlyAmount fields matches the reported total. If not, please flag it clearly.
+// `;
 
-    const jsonString = JSON.stringify(exportData, null, 2);
-    const combined = `${promptText}\`\`\`json\n${jsonString}\n\`\`\``;
+//     const jsonString = JSON.stringify(exportData, null, 2);
+//     const combined = `${promptText}\`\`\`json\n${jsonString}\n\`\`\``;
 
-    try {
-      setCopying(true);
-      await navigator.clipboard.writeText(combined);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+//     try {
+//       setCopying(true);
+//       await navigator.clipboard.writeText(combined);
+//       setCopied(true);
+//       setTimeout(() => setCopied(false), 2000);
 
-      // Automatically switch to Import tab so user can paste right back in if desired
-      setSidebarMode("import");
-    } catch (err) {
-      console.error("Copy failed:", err);
-      alert("Failed to copy to clipboard. Please try again.");
-    } finally {
-      setCopying(false);
-    }
-  };
+//       // Automatically switch to Import tab so user can paste right back in if desired
+//       setSidebarMode("import");
+//     } catch (err) {
+//       console.error("Copy failed:", err);
+//       alert("Failed to copy to clipboard. Please try again.");
+//     } finally {
+//       setCopying(false);
+//     }
+//   };
 
 
   useEffect(() => {
@@ -624,7 +625,7 @@ export default function BudgetCreator() {
         </div>
 
         {/* Copy Button (Always visible) */}
-        <button
+        {/* <button
           onClick={copyBudgetToClipboard}
           className="mb-4 w-full px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 flex justify-center items-center gap-2"
           disabled={copying}
@@ -639,7 +640,7 @@ export default function BudgetCreator() {
           ) : (
             "Copy Budget For AI To Clipboard"
           )}
-        </button>
+        </button> */}
 
         {/* Import Section */}
         {sidebarMode === "import" && (
@@ -651,7 +652,7 @@ export default function BudgetCreator() {
                 </label>
                 <textarea
                   id="importJson"
-                  rows={6}
+                  rows={1}
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   className="w-full border p-2 rounded text-sm"
@@ -740,16 +741,27 @@ export default function BudgetCreator() {
               ))}
             </select>
             <button
-              onClick={handleCopyFrom}
-              disabled={!copyFrom.trim() || history.includes(newBudgetName)}
-              className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName)
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-                }`}
+              onClick={async () => {
+                setCopying(true); // start spinner
+                await handleCopyFrom();
+                setCopying(false); // stop spinner
+                setCopyFrom("")
+              }}
+              disabled={!copyFrom.trim() || history.includes(newBudgetName) || copying}
+              className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName) || copying
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
+                } flex items-center justify-center gap-2`}
             >
-              Copy From Existing
-            </button>
-          </>
+              {copying ? (
+                <>
+                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  Copying...
+                </>
+              ) : (
+                "Copy From Existing"
+              )}
+            </button>          </>
         )}
 
         {/* Always Show Budget History */}
