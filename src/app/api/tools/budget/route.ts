@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 		SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	const [budget] = await db`
-		SELECT id, is_retired, total_assets FROM budgets
+		SELECT id, is_retired, assets_equities, assets_bonds, assets_cash FROM budgets
 		WHERE user_id = ${userId} AND name = ${name}`;
 
 	if (!budget) {
@@ -68,7 +68,9 @@ export async function GET(req: Request) {
 		budget: {
 			id: budget.id,
 			is_retired: budget.is_retired,
-			total_assets: budget.total_assets
+			assets_equities: budget.assets_equities,
+			assets_bonds: budget.assets_bonds,
+			assets_cash: budget.assets_cash
 		}, items
 	}), {
 		headers: { "Content-Type": "application/json" },
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
 	const session = await auth();
 	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
 
-	const { name, originalName, items, isRetired, totalAssets } = await req.json();
+	const { name, originalName, items, isRetired, assetsEquities, assetsBonds, assetsCash } = await req.json();
 	if (!name || typeof name !== "string") return new Response("Missing or invalid name", { status: 400 });
 
 	const [{ id: userId }] = await db`
@@ -106,7 +108,7 @@ export async function POST(req: Request) {
 
 		await db`
 			UPDATE budgets
-			SET is_retired = ${isRetired}, total_assets = ${totalAssets}
+			SET is_retired = ${isRetired}, assets_equities = ${assetsEquities}, assets_bonds = ${assetsBonds}, assets_cash = ${assetsCash}
 			WHERE id = ${budgetId}`;
 	}
 
@@ -120,12 +122,12 @@ export async function POST(req: Request) {
 
 			await db`
 				UPDATE budgets
-				SET is_retired = ${isRetired}, total_assets = ${totalAssets}
+				SET is_retired = ${isRetired}, assets_equities = ${assetsEquities}, assets_bonds = ${assetsBonds}, assets_cash = ${assetsCash}
 				WHERE id = ${budgetId}`;
 		} else {
 			const [created] = await db`
-				INSERT INTO budgets (user_id, name, is_retired, total_assets)
-				VALUES (${userId}, ${name}, ${isRetired}, ${totalAssets})
+				INSERT INTO budgets (user_id, name, is_retired, assets_equities, assets_bonds, assets_cash)
+				VALUES (${userId}, ${name}, ${isRetired}, ${assetsEquities}, ${assetsBonds}, ${assetsCash})
 				RETURNING id`;
 
 			budgetId = created.id;

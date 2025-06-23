@@ -9,8 +9,7 @@ export async function GET() {
 	}
 
 	const [{ id: userId }] = await db`
-    SELECT id FROM users WHERE email = ${session.user.email}
-  `;
+    SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	const budgets = await db`
 		SELECT 
@@ -19,7 +18,9 @@ export async function GET() {
 		b.created_at,
 		b.modified_at,
 		b.is_retired,
-		b.total_assets,
+		b.assets_equities,
+		b.assets_bonds,
+		b.assets_cash,
 		SUM(CASE WHEN bi.category = 'Net Income' THEN bi.yearly_amount ELSE 0 END) AS income,
 		SUM(CASE WHEN bi.category != 'Net Income' THEN bi.yearly_amount ELSE 0 END) AS expenses,
 		SUM(CASE WHEN bi.type = 'Need' THEN bi.yearly_amount ELSE 0 END) AS needs,
@@ -36,14 +37,16 @@ export async function GET() {
 			budgets: budgets.map((b) => ({
 				id: b.id,
 				name: b.name,
-				created_at: b.created_at,
-				modified_at: b.modified_at,
+				createdAt: b.created_at,
+				modifiedAt: b.modified_at,
 				income: Number(b.income),
 				expenses: Number(b.expenses),
 				needs: Number(b.needs),
 				wants: Number(b.wants),
-				isRetired: b.is_retired, // ✅ transform to camelCase
-				totalAssets: b.total_assets !== null ? Number(b.total_assets) : null,
+				isRetired: b.is_retired,
+				assetsEquities: b.assets_equities !== null ? Number(b.assets_equities) : null,
+				assetsBonds: b.assets_bonds !== null ? Number(b.assets_bonds) : null,
+				assetsCash: b.assets_cash !== null ? Number(b.assets_cash) : null,
 			})),
 		}),
 		{ headers: { "Content-Type": "application/json" } }

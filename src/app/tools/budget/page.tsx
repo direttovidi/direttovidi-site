@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { NumericFormat } from 'react-number-format';
+import { formatCurrency } from "@/lib/format";
 
 export default function BudgetCreator() {
   console.log('BudgetCreator rendered');
@@ -11,7 +12,7 @@ export default function BudgetCreator() {
     category: string;
     monthlyAmount: string;
     yearlyAmount: string;
-    type: "Need" | "Want" | "Income";
+    type: "Need" | "Want" | "Income" | "Savings";
   };
 
   const searchParams = useSearchParams();
@@ -27,13 +28,34 @@ export default function BudgetCreator() {
   const [newBudgetName, setNewBudgetName] = useState<string>("");
   const [copyFrom, setCopyFrom] = useState<string>("");
   const [isRetired, setIsRetired] = useState<boolean>(false);
-  const [totalAssets, setTotalAssets] = useState<string>("");
+
+  // Asset breakdown inputs
+  const [assetsEquities, setAssetsEquities] = useState<string>("");
+  const [assetsBonds, setAssetsBonds] = useState<string>("");
+  const [assetsCash, setAssetsCash] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [renameSuccess, setRenameSuccess] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [importText, setImportText] = useState("");
   const [sidebarMode, setSidebarMode] = useState<"create" | "import">("create");
+
+  // Sum up assets
+  const totalAssetsSum =
+    parseFloat(assetsEquities || "0") +
+    parseFloat(assetsBonds || "0") +
+    parseFloat(assetsCash || "0");
+
+  // Avoid division by zero
+  const equitiesPct = totalAssetsSum > 0
+    ? (parseFloat(assetsEquities) / totalAssetsSum) * 100
+    : 0;
+  const bondsPct = totalAssetsSum > 0
+    ? (parseFloat(assetsBonds) / totalAssetsSum) * 100
+    : 0;
+  const cashPct = totalAssetsSum > 0
+    ? (parseFloat(assetsCash) / totalAssetsSum) * 100
+    : 0;
 
   type ImportedBudget = {
     name?: string;
@@ -86,7 +108,9 @@ export default function BudgetCreator() {
               originalName: currentName,
               items: normalizedItems,
               isRetired,
-              totalAssets,
+              assetsEquities: parseFloat(assetsEquities || "0"),
+              assetsBonds: parseFloat(assetsBonds || "0"),
+              assetsCash: parseFloat(assetsCash || "0"),
             }),
             headers: { "Content-Type": "application/json" },
           });
@@ -107,7 +131,7 @@ export default function BudgetCreator() {
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [items, newName, currentName, isRetired, totalAssets]);
+  }, [items, newName, currentName, isRetired, totalAssetsSum]);
 
   function itemsChangedSinceLastSave() {
     // Implement later: optionally track last saved state in a ref
@@ -138,7 +162,9 @@ export default function BudgetCreator() {
         originalName: currentName,
         items: normalizedItems,
         isRetired,
-        totalAssets,
+        assetsEquities: parseFloat(assetsEquities || "0"),
+        assetsBonds: parseFloat(assetsBonds || "0"),
+        assetsCash: parseFloat(assetsCash || "0"),
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -202,7 +228,9 @@ export default function BudgetCreator() {
 
         const data = await res.json();
         setIsRetired(data.budget?.is_retired ?? false);
-        setTotalAssets(data.budget?.total_assets?.toString() ?? "");
+        setAssetsEquities(data.budget.assets_equities?.toString() ?? "")
+        setAssetsBonds(data.budget.assets_bonds?.toString() ?? "")
+        setAssetsCash(data.budget.assets_cash?.toString() ?? "")
 
         let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
           category: item.category,
@@ -371,7 +399,9 @@ export default function BudgetCreator() {
         originalName: originalExists ? newBudgetName : "", // ✅ fix here
         items: newItems,
         isRetired,
-        totalAssets: totalAssets ? parseFloat(totalAssets) : null,
+        assetsEquities: parseFloat(assetsEquities || "0"),
+        assetsBonds: parseFloat(assetsBonds || "0"),
+        assetsCash: parseFloat(assetsCash || "0"),
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -411,21 +441,25 @@ export default function BudgetCreator() {
   const monthlyTotal = needs + wants;
   const yearlyTotal = monthlyTotal * 12;
 
-  const withdrawalRate = totalAssets
-    ? (yearlyTotal / parseFloat(totalAssets)) * 100
+  const withdrawalRate = totalAssetsSum > 0
+    ? (yearlyTotal / totalAssetsSum) * 100
     : 0;
 
-  const needsWithdrawalRate = totalAssets
-    ? (needs * 12 / parseFloat(totalAssets)) * 100
+  const needsWithdrawalRate = totalAssetsSum > 0
+    ? (needs * 12 / totalAssetsSum) * 100
     : 0;
 
-  const wantsWithdrawalRate = totalAssets
-    ? (wants * 12 / parseFloat(totalAssets)) * 100
+  const wantsWithdrawalRate = totalAssetsSum > 0
+    ? (wants * 12 / totalAssetsSum) * 100
     : 0;
 
   const totalIncome = items
     .filter((i) => i.type === "Income")
     .reduce((sum, i) => sum + parseFloat(i.yearlyAmount || "0"), 0);
+
+  const totalMonthlyIncome = items
+    .filter((i) => i.type === "Income")
+    .reduce((sum, i) => sum + parseFloat(i.monthlyAmount || "0"), 0);
 
   const totalExpenses = items
     .filter((i) => i.type !== "Income")
@@ -435,50 +469,16 @@ export default function BudgetCreator() {
     .filter((i) => i.type !== "Income")
     .reduce((sum, i) => sum + parseFloat(i.monthlyAmount || "0"), 0);
 
+  const savings = items
+    .filter((item) => item.type === "Savings")
+    .reduce((sum, item) => sum + parseFloat(item.monthlyAmount || "0"), 0);
+
+  const netAnnual = totalIncome - totalExpenses;
+  const netMonthly = totalMonthlyIncome - totalMonthlyExpenses;
+
   const needsPct = income > 0 ? (needs / income) * 100 : 0;
   const wantsPct = income > 0 ? (wants / income) * 100 : 0;
-  const savePct = income > 0 ? 100 - needsPct - wantsPct : 0;
-
-//   const copyBudgetToClipboard = async () => {
-//     const exportData = {
-//       name,
-//       isRetired,
-//       totalAssets: totalAssets ? parseFloat(totalAssets) : null,
-//       items: items.map((item) => ({
-//         category: item.category,
-//         type: item.type,
-//         monthlyAmount: parseFloat(item.monthlyAmount || "0"),
-//         yearlyAmount: parseFloat(item.yearlyAmount || "0"),
-//       })),
-//     };
-
-//     const promptText = `Here is my budget in JSON format. Please parse the data programmatically (not manually), calculate the total annual spending by summing all 'yearlyAmount' values, and provide:
-
-// - Total annual spending  
-// - Spending split by type ('Need', 'Want', 'Income')  
-// - Withdrawal rate if I enter total assets  
-// - A check that the sum of yearlyAmount fields matches the reported total. If not, please flag it clearly.
-// `;
-
-//     const jsonString = JSON.stringify(exportData, null, 2);
-//     const combined = `${promptText}\`\`\`json\n${jsonString}\n\`\`\``;
-
-//     try {
-//       setCopying(true);
-//       await navigator.clipboard.writeText(combined);
-//       setCopied(true);
-//       setTimeout(() => setCopied(false), 2000);
-
-//       // Automatically switch to Import tab so user can paste right back in if desired
-//       setSidebarMode("import");
-//     } catch (err) {
-//       console.error("Copy failed:", err);
-//       alert("Failed to copy to clipboard. Please try again.");
-//     } finally {
-//       setCopying(false);
-//     }
-//   };
-
+  const savePct = income > 0 ? (savings / income) * 100 : 0;
 
   useEffect(() => {
     try {
@@ -565,7 +565,9 @@ export default function BudgetCreator() {
       setCurrentName(uniqueName);
       setNewName(uniqueName);
       setIsRetired(parsed.isRetired || false);
-      setTotalAssets(parsed.totalAssets?.toString() || "");
+      setAssetsEquities(parsed.assetsEquities?.toString() ?? "");
+      setAssetsBonds(parsed.assetsBonds?.toString() ?? "");
+      setAssetsCash(parsed.assetsCash?.toString() ?? "");
 
       const historyRes = await fetch("/api/tools/budgets");
       if (historyRes.ok) {
@@ -623,24 +625,6 @@ export default function BudgetCreator() {
             </button>
           </nav>
         </div>
-
-        {/* Copy Button (Always visible) */}
-        {/* <button
-          onClick={copyBudgetToClipboard}
-          className="mb-4 w-full px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 flex justify-center items-center gap-2"
-          disabled={copying}
-        >
-          {copying ? (
-            <>
-              <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Copying...
-            </>
-          ) : copied ? (
-            "Copied!"
-          ) : (
-            "Copy Budget For AI To Clipboard"
-          )}
-        </button> */}
 
         {/* Import Section */}
         {sidebarMode === "import" && (
@@ -749,8 +733,8 @@ export default function BudgetCreator() {
               }}
               disabled={!copyFrom.trim() || history.includes(newBudgetName) || copying}
               className={`w-full px-3 py-1 mb-4 rounded text-white ${!copyFrom.trim() || history.includes(newBudgetName) || copying
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-green-600 hover:bg-green-700"
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
                 } flex items-center justify-center gap-2`}
             >
               {copying ? (
@@ -848,6 +832,7 @@ export default function BudgetCreator() {
                       <option value="Need">Need</option>
                       <option value="Want">Want</option>
                       <option value="Income">Income</option>
+                      <option value="Savings">Savings</option>
                     </select>
                     <input
                       type="text"
@@ -916,74 +901,114 @@ export default function BudgetCreator() {
           </form>
         </div>
 
-        {/* Analysis Panel */}
-        <div className="w-full lg:w-[300px] shrink-0 lg:sticky top-4 self-start border rounded-md p-4 shadow-sm order-1 lg:order-3 bg-white dark:bg-gray-900">
-          {/* Retirement Controls */}
-          <div className="flex flex-col gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <label htmlFor="isRetired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Retired?
-              </label>
-              <input
-                id="isRetired"
-                type="checkbox"
-                checked={isRetired}
-                onChange={() => setIsRetired(!isRetired)}
-                className="h-4 w-4"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="totalAssets" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Total Assets
-              </label>
-              <NumericFormat
-                id="totalAssets"
-                value={totalAssets}
-                thousandSeparator
-                prefix="$"
-                decimalScale={2}
-                fixedDecimalScale
-                allowNegative={false}
-                onValueChange={(values) => {
-                  const { floatValue } = values;
-                  if (floatValue !== undefined) {
-                    setTotalAssets(floatValue.toString());
-                  }
-                }}
-                className="border px-2 py-1 w-full"
-                placeholder="e.g. 1,500,000"
-              />
+        {/* Asset Breakdown Panel */}
+        <div className="w-full lg:w-[300px] flex flex-col gap-6 shrink-0 lg:sticky lg:top-4 lg:self-start lg:order-3">
+          <div className="border rounded-md p-4 shadow-sm bg-white dark:bg-gray-900">
+            <h3 className="text-md font-semibold mb-4">Asset Breakdown</h3>
+            {[
+              { label: "Equities", value: assetsEquities, onChange: setAssetsEquities },
+              { label: "Bonds", value: assetsBonds, onChange: setAssetsBonds },
+              { label: "Cash", value: assetsCash, onChange: setAssetsCash },
+            ].map(({ label, value, onChange }) => (
+              <div key={label} className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {label}
+                </label>
+                <NumericFormat
+                  value={value}
+                  thousandSeparator
+                  prefix="$"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  allowNegative={false}
+                  onValueChange={({ floatValue }) => {
+                    onChange((floatValue ?? 0).toString());
+                  }}
+                  className="border px-2 py-1 w-full"
+                  placeholder="0"
+                />
+              </div>
+            ))}
+
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Total Assets:{" "}
+              <strong>
+                {formatCurrency(
+                  parseFloat(assetsEquities || "0") +
+                  parseFloat(assetsBonds || "0") +
+                  parseFloat(assetsCash || "0")
+                )}
+              </strong>
             </div>
           </div>
 
           {/* Metrics */}
-          <h3 className="text-md font-semibold mb-2">
-            {isRetired ? "Retirement Metrics" : "Income Allocation"}
-          </h3>
-          <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-            <li>Total Income: <strong>${totalIncome.toLocaleString()}</strong></li>
-            <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
-            <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
-            <li>
-              Needs: <strong>${needs.toLocaleString()}</strong>/mo • <strong>${(needs * 12).toLocaleString()}</strong>/yr
-            </li>
-            <li>
-              Wants: <strong>${wants.toLocaleString()}</strong>/mo • <strong>${(wants * 12).toLocaleString()}</strong>/yr
-            </li>
-            {isRetired ? (
-              <>
-                <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
-                <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(2)}%</strong></li>
-                <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(2)}%</strong></li>
-              </>
-            ) : (
-              <>
-                <li>Needs: <strong>{needsPct.toFixed(1)}%</strong> of income</li>
-                <li>Wants: <strong>{wantsPct.toFixed(1)}%</strong> of income</li>
-                <li>Leftover to Save: <strong>{savePct.toFixed(1)}%</strong></li>
-              </>
-            )}
-          </ul>
+          <div className="border rounded-md p-4 shadow-sm bg-white dark:bg-gray-900">
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Retired?</span>
+                <button
+                  onClick={() => setIsRetired(!isRetired)}
+                  className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${isRetired ? "bg-blue-600" : "bg-gray-400"
+                    }`}
+                  role="switch"
+                  aria-checked={isRetired}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 ${isRetired ? "translate-x-4" : ""
+                      }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <h3 className="text-md font-semibold mb-2">
+              {isRetired ? "Retirement Metrics" : "Income Allocation"}
+            </h3>
+            <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+              <li>
+                Total Income: <strong>${totalMonthlyIncome.toLocaleString()}</strong>/mo • <strong>${totalIncome.toLocaleString()}</strong>/yr
+              </li>
+              <li>Total Expenses (Yearly): <strong>${totalExpenses.toLocaleString()}</strong></li>
+              <li>Total Expenses (Monthly): <strong>${totalMonthlyExpenses.toLocaleString()}</strong></li>
+              <li>
+                Net: <strong>${netMonthly.toLocaleString()}</strong>/mo • <strong>${netAnnual.toLocaleString()}</strong>/yr
+              </li>
+              <li>
+                Needs: <strong>${needs.toLocaleString()}</strong>/mo • <strong>${(needs * 12).toLocaleString()}</strong>/yr
+              </li>
+              <li>
+                Wants: <strong>${wants.toLocaleString()}</strong>/mo • <strong>${(wants * 12).toLocaleString()}</strong>/yr
+              </li>
+              {/* Asset Allocation */}
+              {isRetired ? (
+                <>
+                  <li>Total Withdrawal Rate: <strong>{withdrawalRate.toFixed(2)}%</strong></li>
+                  <li>Needs Withdrawal Rate: <strong>{needsWithdrawalRate.toFixed(2)}%</strong></li>
+                  <li>Wants Withdrawal Rate: <strong>{wantsWithdrawalRate.toFixed(2)}%</strong></li>
+                </>
+              ) : (
+                <>
+                  <li>Needs: <strong>{needsPct.toFixed(1)}%</strong> of income</li>
+                  <li>Wants: <strong>{wantsPct.toFixed(1)}%</strong> of income</li>
+                  <li>Savings: <strong>{savePct.toFixed(1)}%</strong> of income</li>              </>
+              )}
+            </ul>
+            <h3 className="mt-4 text-md font-semibold text-gray-800 dark:text-gray-300">Asset Allocation</h3>
+            <ul>
+              <li className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+                <span className="w-20 text-gray-500">Equities</span>
+                <span><strong>{equitiesPct.toFixed(1)}%</strong></span>
+              </li>
+              <li className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+                <span className="w-20 text-gray-500">Bonds</span>
+                <span><strong>{bondsPct.toFixed(1)}%</strong></span>
+              </li>
+              <li className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-300">
+                <span className="w-20 text-gray-500">Cash</span>
+                <span><strong>{cashPct.toFixed(1)}%</strong></span>
+              </li>
+            </ul>
+          </div>
         </div>
       </main>
     </div>
