@@ -5,6 +5,29 @@ import { useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { NumericFormat } from 'react-number-format';
 import { formatCurrency } from "@/lib/format";
+import { useBudgetImportStore } from "@/store/budgetImportStore";
+import { useRouter } from "next/navigation";
+import { extractJsonObjects } from "@/lib/jsonExtractor";
+
+const isBudgetItem = (item: any) =>
+  item &&
+  typeof item.category === "string" &&
+  typeof item.type === "string" &&
+  ["Need", "Want", "Income", "Savings"].includes(item.type) &&
+  (
+    typeof item.monthlyAmount === "number" ||
+    typeof item.monthlyAmount === "string" ||
+    typeof item.yearlyAmount === "number" ||
+    typeof item.yearlyAmount === "string"
+  );
+
+function isLikelyBudget(obj: any): boolean {
+  if (!obj || typeof obj !== "object") return false;
+  if (!Array.isArray(obj.items)) return false;
+  if (obj.items.length === 0) return false;
+  const validItems = obj.items.filter(isBudgetItem);
+  return validItems.length / obj.items.length > 0.6; // 60%+ must look valid
+}
 
 export default function BudgetCreator() {
   console.log('BudgetCreator rendered');
@@ -28,6 +51,7 @@ export default function BudgetCreator() {
   const [newBudgetName, setNewBudgetName] = useState<string>("");
   const [copyFrom, setCopyFrom] = useState<string>("");
   const [isRetired, setIsRetired] = useState<boolean>(false);
+  const [importError, setImportError] = useState('');
 
   // Asset breakdown inputs
   const [assetsEquities, setAssetsEquities] = useState<string>("");
@@ -480,29 +504,53 @@ export default function BudgetCreator() {
   const wantsPct = income > 0 ? (wants / income) * 100 : 0;
   const savePct = income > 0 ? (savings / income) * 100 : 0;
 
+  const router = useRouter();
+  const setDraft = useBudgetImportStore((s) => s.setDraft);
+
   useEffect(() => {
-    try {
-      const parsed = JSON.parse(importText);
-      if (parsed && Array.isArray(parsed.items)) {
-        setImportParsed(parsed);
-
-        let baseName = parsed.name?.trim() || "Imported Budget";
-        let newName = baseName;
-        let suffix = 1;
-
-        while (history.includes(newName)) {
-          newName = `${baseName}-${suffix}`;
-          suffix++;
-        }
-
-        setNewBudgetName(newName);
-      } else {
-        setImportParsed(null);
-      }
-    } catch {
-      setImportParsed(null);
+    if (!importText.trim()) {
+      setImportError("");  // 🔹 Clear the error if the user deletes the input
+      return;
     }
-  }, [importText, history]);
+
+    if (importText.length > 100_000) {
+      setImportParsed(null);
+      setImportError("The pasted input is too large to process. Please shorten it.");
+      return;
+    }
+
+    try {
+      const cleaned = importText
+        .replace(/“|”/g, '"')
+        .replace(/‘|’/g, "'")
+        .replace(/\u200B/g, '') // zero-width space
+        .trim();
+
+      const allObjects = extractJsonObjects(cleaned);
+
+      // Helper functions — put these above or in a utils file if not already
+      const candidates = allObjects.filter(isLikelyBudget);
+
+      if (candidates.length === 0) {
+        throw new Error("No valid budget objects found");
+      }
+
+      const best = candidates.reduce((a, b) =>
+        b.items.length > a.items.length ? b : a
+      );
+
+      // Success: set and navigate
+      setDraft(best);
+      setImportError(""); // clear any previous error
+      router.push("/tools/budget/import-preview");
+    }
+    catch (err) {
+      console.error("Failed to parse import JSON", err);
+      setImportParsed(null);
+      setImportError(`Hmm, we couldn’t read that budget. Make sure you pasted the entire response from the AI — 
+        including the part that says 'items' and the list of categories. Try copying and pasting again.`);
+    }
+  }, [importText]);
 
 
   const handleImportJson = async () => {
@@ -642,6 +690,9 @@ export default function BudgetCreator() {
                   className="w-full border p-2 rounded text-sm"
                   placeholder='Paste budget here ...'
                 />
+                {importError && (
+                  <p className="text-red-600 text-sm mt-2">{importError}</p>
+                )}
               </>
             ) : (
               <>

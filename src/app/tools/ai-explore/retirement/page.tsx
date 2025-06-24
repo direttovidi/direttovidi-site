@@ -10,8 +10,8 @@ const RETIREMENT_QUESTIONS = [
         label: "Is my current withdrawal rate sustainable for 30 years?",
         prompt: `Please analyze whether the withdrawal rate in this retirement budget is sustainable over a 30-year period. 
                     Use both a Monte Carlo simulation (1,000+ simulations, using inflation-adjusted returns) and backtesting 
-                    against multiple historical market return sequences (e.g., 1929, 1973, 2000, 1982). The portfolio size is 
-                    provided in the JSON as \`totalAssets\` — please extract it programmatically. Parse the JSON data 
+                    against multiple historical market return sequences (e.g., 1929, 1973, 2000, 1982). The total portfolio size is 
+                    provided in the JSON as \`assetsEquities, assetsBonds, assetsCash\` — please extract it programmatically. Parse the JSON data 
                     programmatically (not manually), calculate total annual expenses, the withdrawal rate, and simulate whether 
                     the portfolio survives 30 years in each case.
                     For Monte Carlo, run 1,000 or more simulations using inflation-adjusted returns and return the probability 
