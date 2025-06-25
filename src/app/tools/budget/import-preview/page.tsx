@@ -97,6 +97,7 @@ export default function ImportPreviewPage() {
 
         return issues;
     }
+
     if (!budget) return null;
 
     return (

@@ -21,8 +21,8 @@ export async function GET() {
 		b.assets_equities,
 		b.assets_bonds,
 		b.assets_cash,
-		SUM(CASE WHEN bi.category = 'Net Income' THEN bi.yearly_amount ELSE 0 END) AS income,
-		SUM(CASE WHEN bi.category != 'Net Income' THEN bi.yearly_amount ELSE 0 END) AS expenses,
+		SUM(CASE WHEN bi.type = 'Income' THEN bi.yearly_amount ELSE 0 END) AS income,
+		SUM(CASE WHEN bi.type != 'Income' THEN bi.yearly_amount ELSE 0 END) AS expenses,
 		SUM(CASE WHEN bi.type = 'Need' THEN bi.yearly_amount ELSE 0 END) AS needs,
 		SUM(CASE WHEN bi.type = 'Want' THEN bi.yearly_amount ELSE 0 END) AS wants
 		FROM budgets b

@@ -256,21 +256,12 @@ export default function BudgetCreator() {
         setAssetsBonds(data.budget.assets_bonds?.toString() ?? "")
         setAssetsCash(data.budget.assets_cash?.toString() ?? "")
 
-        let fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
+        const fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
           category: item.category,
           monthlyAmount: item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "",
           yearlyAmount: item.yearlyAmount ? Number(item.yearlyAmount).toFixed(2) : "",
           type: item.type,
         }));
-
-        const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
-        fetchedItems = fetchedItems.filter(i => i.category !== "Net Income");
-
-        if (netIncomeItem !== undefined) {
-          fetchedItems = [netIncomeItem, ...fetchedItems];
-        } else {
-          fetchedItems = [{ category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" }, ...fetchedItems];
-        }
 
         setItems(fetchedItems);
       } catch (err) {
@@ -295,6 +286,8 @@ export default function BudgetCreator() {
     setItems([...items, { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" }]);
   };
 
+  //The budget table has monthly and yearly values. Depending on what is changed, the other value
+  //needs to be computed.
   const handleChange = (index: number, field: keyof BudgetItem, value: string) => {
     setItems((prevItems) => {
       const updated = [...prevItems];
@@ -320,11 +313,8 @@ export default function BudgetCreator() {
         }
       } else if (field === "category") {
         item.category = value;
-        if (value === "Net Income") {
-          item.type = "Income";
-        }
       } else if (field === "type") {
-        item.type = value as "Need" | "Want" | "Income";
+        item.type = value as "Need" | "Want" | "Income" | "Savings";
       }
 
       updated[index] = item;
@@ -386,7 +376,7 @@ export default function BudgetCreator() {
     setName(newBudgetName);
     setCurrentName(newBudgetName);
     setNewName(newBudgetName);
-    setItems([{ category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" }]);
+    setItems([{ category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" }]);
 
     setNewBudgetName(""); // Clear input after creating
   };
@@ -408,11 +398,7 @@ export default function BudgetCreator() {
       };
     });
 
-    const netIncomeItem = fetchedItems.find(i => i.category === "Net Income");
-    const otherItems = fetchedItems.filter(i => i.category !== "Net Income");
-    const netIncome = netIncomeItem ?? { category: "Net Income", monthlyAmount: "", yearlyAmount: "", type: "Income" };
-
-    const newItems = [netIncome, ...otherItems];
+    const newItems = fetchedItems;
 
     const originalExists = history.includes(newBudgetName);
 
@@ -580,16 +566,7 @@ export default function BudgetCreator() {
         type: item.type,
       }));
 
-      // Ensure Net Income is first
-      const netIncomeItem = importedItems.find((i) => i.category === "Net Income") ?? {
-        category: "Net Income",
-        monthlyAmount: "",
-        yearlyAmount: "",
-        type: "Income",
-      };
-
-      const otherItems = importedItems.filter((i) => i.category !== "Net Income");
-      const allItems = [netIncomeItem, ...otherItems];
+      const allItems = importedItems; // no injection or reordering
 
       const saveRes = await fetch("/api/tools/budget", {
         method: "POST",
@@ -867,7 +844,9 @@ export default function BudgetCreator() {
               </div>
 
               {items.map((item, index) => {
-                const isIncome = item.category === "Net Income";
+                const amountClass = item.type === "Income"
+                  ? "text-green-700 dark:text-green-300"
+                  : "text-red-700 dark:text-red-300";
                 return (
                   <div
                     key={index}
@@ -878,7 +857,7 @@ export default function BudgetCreator() {
                       value={item.type}
                       onChange={(e) => handleChange(index, "type", e.target.value)}
                       className="border px-2 py-1 w-full"
-                      disabled={isIncome}
+                      disabled={false}
                     >
                       <option value="Need">Need</option>
                       <option value="Want">Want</option>
@@ -889,9 +868,9 @@ export default function BudgetCreator() {
                       type="text"
                       placeholder="Category"
                       value={item.category}
-                      onChange={(e) => !isIncome && handleChange(index, "category", e.target.value)}
-                      className={`border px-1 py-1 w-full ${isIncome ? "bg-gray-100" : ""}`}
-                      readOnly={isIncome}
+                      onChange={(e) => handleChange(index, "category", e.target.value)}
+                      className={`border px-1 py-1 w-full`}
+                      readOnly={false}
                     />
                     <NumericFormat
                       value={item.monthlyAmount}
@@ -908,7 +887,7 @@ export default function BudgetCreator() {
                           handleChange(index, "monthlyAmount", floatValue.toString());
                         }
                       }}
-                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${amountClass}`}
                     />
                     <NumericFormat
                       value={item.yearlyAmount}
@@ -925,14 +904,14 @@ export default function BudgetCreator() {
                           handleChange(index, "yearlyAmount", floatValue.toString());
                         }
                       }}
-                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${isIncome ? "text-green-600" : "text-red-600"}`}
+                      className={`border px-1 py-1 w-[120px] sm:w-[140px] text-left ${amountClass}`}
                     />
                     <button
                       type="button"
                       onClick={() => handleDeleteItem(index, item.category)}
-                      className={`text-red-500 text-sm ${isIncome ? "invisible" : ""}`}
-                      disabled={isIncome}
-                      title={isIncome ? "Cannot delete Net Income" : ""}
+                      className={`text-red-500 text-sm`}
+                      disabled={false}
+                      title=""
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
