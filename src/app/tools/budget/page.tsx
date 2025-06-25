@@ -32,6 +32,7 @@ function isLikelyBudget(obj: any): boolean {
 export default function BudgetCreator() {
   console.log('BudgetCreator rendered');
   type BudgetItem = {
+    id?: string;
     category: string;
     monthlyAmount: string;
     yearlyAmount: string;
@@ -117,7 +118,8 @@ export default function BudgetCreator() {
 
         if (!isRename && !itemsChangedSinceLastSave()) return;
 
-        const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+        const normalizedItems = filteredItems.map(({ id, category, monthlyAmount, yearlyAmount, type }) => ({
+          id,
           category,
           monthlyAmount,
           yearlyAmount,
@@ -172,7 +174,8 @@ export default function BudgetCreator() {
 
     // Save current state explicitly
     const filteredItems = items.filter((item) => item.category.trim() !== "");
-    const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+    const normalizedItems = filteredItems.map(({ id, category, monthlyAmount, yearlyAmount, type }) => ({
+      id,
       category,
       monthlyAmount,
       yearlyAmount,
@@ -257,6 +260,7 @@ export default function BudgetCreator() {
         setAssetsCash(data.budget.assets_cash?.toString() ?? "")
 
         const fetchedItems: BudgetItem[] = (data.items || []).map((item: any) => ({
+          id: item.id,
           category: item.category,
           monthlyAmount: item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "",
           yearlyAmount: item.yearlyAmount ? Number(item.yearlyAmount).toFixed(2) : "",
@@ -283,7 +287,16 @@ export default function BudgetCreator() {
   }, []);
 
   const handleAddRow = () => {
-    setItems([...items, { category: "", monthlyAmount: "", yearlyAmount: "", type: "Need" }]);
+    setItems([
+      ...items,
+      {
+        id: crypto.randomUUID(),
+        category: "",
+        monthlyAmount: "",
+        yearlyAmount: "",
+        type: "Need",
+      },
+    ]);
   };
 
   //The budget table has monthly and yearly values. Depending on what is changed, the other value
@@ -291,7 +304,7 @@ export default function BudgetCreator() {
   const handleChange = (index: number, field: keyof BudgetItem, value: string) => {
     setItems((prevItems) => {
       const updated = [...prevItems];
-      const item = { ...updated[index] };
+      const item = { ...updated[index], id: updated[index].id ?? crypto.randomUUID() };
 
       if (field === "monthlyAmount") {
         item.monthlyAmount = value;
@@ -329,7 +342,8 @@ export default function BudgetCreator() {
       alert("Name and items are required.");
       return;
     }
-    const normalizedItems = filteredItems.map(({ category, monthlyAmount, yearlyAmount, type }) => ({
+    const normalizedItems = filteredItems.map(({ id, category, monthlyAmount, yearlyAmount, type }) => ({
+      id,
       category,
       monthlyAmount,
       yearlyAmount,
@@ -391,6 +405,7 @@ export default function BudgetCreator() {
       const monthly = item.monthlyAmount ? Number(item.monthlyAmount).toFixed(2) : "";
       const yearly = item.yearlyAmount ? Number(item.yearlyAmount).toFixed(2) : "";
       return {
+        id: crypto.randomUUID(),
         category: item.category,
         type: item.type,
         monthlyAmount: monthly,
@@ -560,6 +575,7 @@ export default function BudgetCreator() {
       setImporting(true); // ⏳ Start spinner
 
       const importedItems: BudgetItem[] = parsed.items.map((item: any) => ({
+        id: item.id ?? crypto.randomUUID(),
         category: item.category,
         monthlyAmount: item.monthlyAmount?.toString() || "",
         yearlyAmount: item.yearlyAmount?.toString() || "",

@@ -1,5 +1,6 @@
 import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
+import { id } from "date-fns/locale";
 
 // DELETE
 export async function DELETE(req: Request) {
@@ -52,12 +53,13 @@ export async function GET(req: Request) {
 	}
 
 	const dbItems = await db`
-		SELECT category, monthly_amount, yearly_amount, type
+		SELECT id, category, monthly_amount, yearly_amount, type
 		FROM budget_items
 		WHERE budget_id = ${budget.id}
 		ORDER BY sort_order`;
 
 	const items = dbItems.map((item: any) => ({
+		id: item.id,
 		category: item.category,
 		monthlyAmount: item.monthly_amount?.toString() || "",
 		yearlyAmount: item.yearly_amount?.toString() || "",
@@ -136,12 +138,13 @@ export async function POST(req: Request) {
 
 	// 🔁 Upsert items
 	const existingItems = await db`
-		SELECT category, monthly_amount, yearly_amount, type FROM budget_items WHERE budget_id = ${budgetId}`;
+		SELECT id, category, monthly_amount, yearly_amount, type FROM budget_items WHERE budget_id = ${budgetId}`;
 
 	const existingMap = new Map(
 		existingItems.map((item: any) => [
-			item.category,
+			item.id,
 			{
+				category: item.category,
 				monthly: parseFloat(item.monthly_amount),
 				yearly: parseFloat(item.yearly_amount),
 				type: item.type,
@@ -151,29 +154,41 @@ export async function POST(req: Request) {
 
 	let sortOrder = 0;
 	for (const item of items) {
-		const category = item.category;
-		const monthly = parseFloat(item.monthlyAmount || "0");
-		const yearly = parseFloat(item.yearlyAmount || "0");
-		const type = item.type;
+		const { id, category, monthlyAmount, yearlyAmount, type } = item;
+		const monthly = parseFloat(monthlyAmount || "0");
+		const yearly = parseFloat(yearlyAmount || "0");
 
-		const existing = existingMap.get(category);
-
-		if (!existing) {
+		if (id && existingMap.has(id)) {
+			// Update existing item by id
 			await db`
-				INSERT INTO budget_items (budget_id, category, monthly_amount, yearly_amount, sort_order, type)
-				VALUES (${budgetId}, ${category}, ${monthly}, ${yearly}, ${sortOrder}, ${type})`;
-		} else if (
-			existing.monthly !== monthly ||
-			existing.yearly !== yearly ||
-			existing.type !== type
-		) {
+			UPDATE budget_items
+			SET category = ${category},
+				monthly_amount = ${monthly},
+				yearly_amount = ${yearly},
+				sort_order = ${sortOrder},
+				type = ${type}
+			WHERE id = ${id}`;
+		} else {
+			// Insert new item with fallback id
+			const newId = id || crypto.randomUUID();
 			await db`
-				UPDATE budget_items
-				SET monthly_amount = ${monthly}, yearly_amount = ${yearly}, type = ${type}, sort_order = ${sortOrder}
-				WHERE budget_id = ${budgetId} AND category = ${category}`;
+			INSERT INTO budget_items (id, budget_id, category, monthly_amount, yearly_amount, sort_order, type)
+			VALUES (${newId}, ${budgetId}, ${category}, ${monthly}, ${yearly}, ${sortOrder}, ${type})`;
 		}
 
 		sortOrder++;
+	}
+
+	const incomingIds = new Set((items || []).map((item: any) => item.id || "").filter(Boolean));
+
+	if (incomingIds.size > 0) {
+		const idsArray = [...incomingIds];
+
+		await db`
+		DELETE FROM budget_items
+		WHERE budget_id = ${budgetId}
+		AND id IS NOT NULL
+		AND id NOT IN (SELECT UNNEST(${idsArray}::uuid[]))`;
 	}
 
 	return new Response("Saved", { status: 200 });
