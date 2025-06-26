@@ -4,8 +4,7 @@ import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import cn from "classnames";
-import { ThemeSwitcher } from "./_components/theme-switcher";
-import AnalyticsProvider from "@/app/_components/AnalyticsProvider";
+// import { ThemeSwitcher } from "./_components/theme-switcher";
 import { auth, signOut } from "@/app/auth";
 import UserMenu from "@/app/_components/usermenu";
 import "./globals.css";
@@ -79,7 +78,7 @@ export default async function RootLayout({
             <Navbar />
           </div>
           <div className="flex-1 flex justify-end items-center space-x-6">
-            <ThemeSwitcher />
+            {/* <ThemeSwitcher /> */}
             <UserMenu user={session?.user} />
           </div>{" "}
         </header>

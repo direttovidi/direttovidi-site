@@ -51,7 +51,7 @@ export default function BudgetList() {
 	}
 
 	// Custom grid template: Name (3fr), Income (1fr), Expenses (1fr), Retired (0.5fr), Equities (1fr), Bonds (1fr), Cash (1fr), Total Assets (1fr), Metrics (2fr), Modified (1fr)
-	const gridTemplate = "lg:grid-cols-[2fr_1fr_1fr_0.5fr_1fr_1fr_1fr_1fr_1fr_0.7fr]";
+	const gridTemplate = "lg:grid-cols-[2fr_1fr_1fr_0.5fr_1fr_1fr_1fr_1fr_1fr_0.7fr_0.3fr]";
 
 	return (
 		<div className="max-w-screen-2xl mx-auto p-4">
@@ -72,7 +72,7 @@ export default function BudgetList() {
 						<div className="p-2">Cash</div>
 						<div className="p-2">Total Assets</div>
 						<div className="p-2">Metrics</div>
-						<div className="p-2 text-right">Last Modified</div>
+						<div className="p-2">Last Modified</div>
 					</div>
 
 					{/* Rows */}
@@ -151,11 +151,15 @@ export default function BudgetList() {
 											</>
 										)}
 									</div>
-									<div className="flex justify-between lg:justify-end items-center">
+									{/* Last Modified */}
+									<div>
 										<span className="text-xs text-gray-500 lg:hidden block mb-1">Modified</span>
 										<span className="p-2 text-xs text-gray-500">
 											{new Date(b.modifiedAt || b.createdAt).toLocaleDateString()}
 										</span>
+									</div>
+									{/* Delete Button */}
+									<div className="flex justify-end items-center">
 										<button
 											onClick={async () => {
 												const confirmed = confirm(`Delete budget \"${b.name}\"?`);
@@ -172,6 +176,7 @@ export default function BudgetList() {
 												}
 											}}
 											className="text-red-500 hover:text-red-700"
+											aria-label={`Delete ${b.name}`}
 										>
 											<Trash2 className="w-4 h-4" />
 										</button>
