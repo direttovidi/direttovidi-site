@@ -1,15 +1,16 @@
 import Container from "@/app/_components/container";
 import { getAllPosts } from "@/lib/api";
 import Link from "next/link";
-import { auth } from "@/app/auth";
+import ForceRefresh from '@/app/_components/forceRefresh';
+import React from 'react';
 
 export default async function HomePage() {
 
   const { pinned, others } = getAllPosts();
-  const session = await auth();
-  
+
   return (
     <main>
+      <ForceRefresh />
       {/* Hero Section */}
       <section className="bg-gray-50 py-12 text-center">
         <h2 className="text-4xl font-bold mb-4">Personal finance for the modern age.</h2>
@@ -17,7 +18,6 @@ export default async function HomePage() {
           Helping you make confident, clear decisions about your money—one question at a time.
         </p>
       </section>
-
       <Container>
         {/* Intro Component */}
         {/* <Intro /> */}

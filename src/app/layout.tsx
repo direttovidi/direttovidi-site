@@ -10,6 +10,8 @@ import UserMenu from "@/app/_components/usermenu";
 import "./globals.css";
 import Navbar from "./_components/navbar";
 import Link from "next/link";
+import { SessionClientProvider } from './SessionClientProvider';
+import TopRightAuthSlot from "./_components/topRightAuthSlot";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,6 +26,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  const user = session?.user;
+  console.log("User in RootLayout:", user);
 
   return (
     <html lang="en">
@@ -60,31 +64,34 @@ export default async function RootLayout({
         <meta name="theme-color" content="#000" />
         <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
       </head>
-      <body
-        className={cn(inter.className, "dark:bg-slate-900 dark:text-slate-400")}
-      >
-        <header className="flex justify-between items-center px-6 py-4 border-b">
-          {/* Left: Logo and nav links in a row */}
-          <div className="flex-1">
-            <Link
-              href="/"
-              className="text-xl font-bold text-blue-600 mr-4 sm:mr-6 md:mr-8 lg:mr-10"
-            >
-              DirettoVidi
-            </Link>
+      <body className={cn(inter.className, "dark:bg-slate-900 dark:text-slate-400")}>
+        <SessionClientProvider>
+          <div className="min-h-screen flex flex-col">
+            {/* ✅ Header must come before children and inside provider */}
+            <header className="flex justify-between items-center px-6 py-4 border-b">
+              <div className="flex-1">
+                <Link
+                  href="/"
+                  className="text-xl font-bold text-blue-600 mr-4 sm:mr-6 md:mr-8 lg:mr-10"
+                >
+                  DirettoVidi
+                </Link>
+              </div>
+              <div className="flex-none">
+                <Navbar />
+              </div>
+              <div className="flex-1 flex justify-end items-center space-x-6">
+                <TopRightAuthSlot/>
+              </div>
+            </header>
+
+            {/* ✅ Page content */}
+            <main className="flex-1">{children}</main>
           </div>
-          {/* Right: User avatar menu */}
-          <div className="flex-none">
-            <Navbar />
-          </div>
-          <div className="flex-1 flex justify-end items-center space-x-6">
-            {/* <ThemeSwitcher /> */}
-            <UserMenu user={session?.user} />
-          </div>{" "}
-        </header>
-        <div className="min-h-screen">{children}</div>
-        {/*<Footer />*/}
-        {/* Only render Analytics in production */}
+        </SessionClientProvider>
+
+        {/* Optional Footer & Analytics */}
+        {/* <Footer /> */}
         <Analytics />
       </body>
     </html>

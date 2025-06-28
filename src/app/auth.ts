@@ -1,12 +1,12 @@
 // src/auth.ts
-import GoogleProvider from "next-auth/providers/google";
-import type { NextAuthConfig } from "next-auth";
 import NextAuth from "next-auth";
 import  { authConfig } from "@/app/api/auth/[...nextauth]/auth.config";
 
-export const {
-  handlers: { GET, POST },
+const {
   auth,
+  handlers: { GET, POST },
   signIn,
   signOut,
 } = NextAuth(authConfig);
+
+export { GET, POST, signIn, signOut, auth };
