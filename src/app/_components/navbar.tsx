@@ -19,6 +19,7 @@ export default function Navbar() {
             <>
               <Link href="/tools/budget" className="text-gray-700 hover:text-blue-600">Budget</Link>
               <Link href="/tools/budgets" className="text-gray-700 hover:text-blue-600">Budgets</Link>
+              <Link href="/tools/asset-snapshots" className="text-gray-700 hover:text-blue-600">Asset Snapshots</Link>
               <Link href="/tools/ai-explore" className="text-gray-700 hover:text-blue-600">AI Explore</Link>
             </>
           ) : (
