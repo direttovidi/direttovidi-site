@@ -4,13 +4,24 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { NumericFormat } from 'react-number-format';
 import { Trash2Icon } from "lucide-react";
 
+function generateMonthOptions(startYear: number, endYear: number): string[] {
+    const months: string[] = [];
+    for (let year = endYear; year >= startYear; year--) {
+        for (let month = 12; month >= 1; month--) {
+            const mm = String(month).padStart(2, "0");
+            months.push(`${year}-${mm}`);
+        }
+    }
+    return months;
+}
+
 export default function AssetSnapshotsPage() {
     const [snapshots, setSnapshots] = useState<any[]>([]);
     const [form, setForm] = useState({
-        date: "",
-        portfolioValue: "" as number | "",
-        contributions: "" as number | "",
-        withdrawals: "" as number | "",
+        month: "",
+        portfolioValue: "",
+        contributions: "",
+        withdrawals: "",
         note: ""
     });
     const [loading, setLoading] = useState(false);
@@ -43,21 +54,25 @@ export default function AssetSnapshotsPage() {
         fetchSnapshots();
     }, []);
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
     const handleEdit = (snapshot: any) => {
+        const snapshotDate = new Date(snapshot.date);
+        const year = snapshotDate.getFullYear();
+        const month = String(snapshotDate.getMonth() + 1).padStart(2, "0");
+
         setForm({
-            date: new Date(snapshot.date).toISOString().split("T")[0],
-            portfolioValue: snapshot.portfolio_value,
-            contributions: snapshot.contributions,
-            withdrawals: snapshot.withdrawals,
+            month: `${year}-${month}`,
+            portfolioValue: String(snapshot.portfolio_value),
+            contributions: String(snapshot.contributions),
+            withdrawals: String(snapshot.withdrawals),
             note: snapshot.note || "",
         });
         setEditingId(snapshot.id);
-    };
+    }
 
     const handleDelete = async (id: string) => {
         const confirmed = confirm("Are you sure you want to delete this snapshot?");
@@ -90,15 +105,21 @@ export default function AssetSnapshotsPage() {
         setLoading(true);
         setError("");
 
+        const [yearStr, monthStr] = form.month.split("-");
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10);
+
         try {
             const url = editingId
                 ? `/api/tools/asset-snapshots/${editingId}`
                 : `/api/tools/asset-snapshots`;
 
             const method = editingId ? "PUT" : "POST";
+            // JS months are 0-indexed, so new Date(year, month, 0) gives last day of month
+            const date = new Date(year, month, 0).toISOString().split("T")[0];
 
             const js = JSON.stringify({
-                date: form.date,
+                date,
                 portfolioValue: form.portfolioValue === "" ? 0 : form.portfolioValue,
                 contributions: form.contributions === "" ? 0 : form.contributions,
                 withdrawals: form.withdrawals === "" ? 0 : form.withdrawals,
@@ -108,7 +129,7 @@ export default function AssetSnapshotsPage() {
             console.log("Submitting snapshot:", js);
 
             const res = await fetch(url, {
-                method,
+                method: editingId ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: js,
             });
@@ -126,12 +147,13 @@ export default function AssetSnapshotsPage() {
 
             // Clear form and editing state
             setForm({
-                date: "",
+                month: "",
                 portfolioValue: "",
                 contributions: "",
                 withdrawals: "",
                 note: "",
             });
+
             setEditingId(null);
             await fetchSnapshots();
         } catch (err: any) {
@@ -149,64 +171,78 @@ export default function AssetSnapshotsPage() {
             {error && <div className="text-red-600">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium">Date</label>
-                        <input
-                            type="date"
-                            name="date"
-                            value={form.date}
-                            onChange={handleChange}
-                            required
-                            className="mt-1 block w-full rounded p-2 border"
-                        />
+                <div className="space-y-4">
+                    <div className="flex gap-4">
+                        <div className="flex flex-col">
+                            <label className="text-sm font-medium">Date</label>
+                            <select
+                                name="month"
+                                value={form.month}
+                                onChange={handleChange}
+                                required
+                                className="w-40 rounded p-2 border"
+                            >
+                                <option value="">Select month</option>
+                                {generateMonthOptions(2017, new Date().getFullYear() + 1).map(month => (
+                                    <option key={month} value={month}>
+                                        {month}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col">
+                            <label className="text-sm font-medium">Portfolio Value</label>
+                            <NumericFormat
+                                name="portfolioValue"
+                                value={form.portfolioValue}
+                                thousandSeparator
+                                prefix="$"
+                                decimalScale={2}
+                                allowNegative={false}
+                                onValueChange={({ floatValue }) => {
+                                    setForm(prev => ({ ...prev, portfolioValue: floatValue !== undefined ? String(floatValue) : "" }));
+                                }}
+                                className="w-40 rounded p-2 border"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium">Portfolio Value</label>
-                        <NumericFormat
-                            name="portfolioValue"
-                            value={form.portfolioValue}
-                            thousandSeparator
-                            prefix="$"
-                            decimalScale={2}
-                            allowNegative={false}
-                            onValueChange={({ floatValue }) => {
-                                setForm(prev => ({ ...prev, portfolioValue: floatValue ?? "" }));
-                            }}
-                            className="mt-1 block w-full rounded p-2 border"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Contributions</label>
-                        <NumericFormat
-                            name="contributions"
-                            value={form.contributions}
-                            thousandSeparator
-                            prefix="$"
-                            decimalScale={2}
-                            allowNegative={false}
-                            onValueChange={({ floatValue }) => {
-                                setForm(prev => ({ ...prev, contributions: floatValue ?? "" }));
-                            }}
-                            className="mt-1 block w-full rounded p-2 border"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Withdrawals</label>
-                        <NumericFormat
-                            name="withdrawals"
-                            value={form.withdrawals}
-                            thousandSeparator
-                            prefix="$"
-                            decimalScale={2}
-                            allowNegative={false}
-                            onValueChange={({ floatValue }) => {
-                                setForm(prev => ({ ...prev, withdrawals: floatValue ?? "" }));
-                            }}
-                            className="mt-1 block w-full rounded p-2 border"
-                        />
+
+                    <div className="flex gap-4">
+                        <div className="flex flex-col">
+                            <label className="text-sm font-medium">Contributions</label>
+                            <NumericFormat
+                                name="contributions"
+                                value={form.contributions}
+                                thousandSeparator
+                                prefix="$"
+                                decimalScale={2}
+                                allowNegative={false}
+                                onValueChange={({ floatValue }) => {
+                                    setForm(prev => ({ ...prev, contributions: floatValue !== undefined ? String(floatValue) : "" }));
+                                }}
+                                className="w-40 rounded p-2 border"
+                            />
+                        </div>
+
+                        <div className="flex flex-col">
+                            <label className="text-sm font-medium">Withdrawals</label>
+                            <NumericFormat
+                                name="withdrawals"
+                                value={form.withdrawals}
+                                thousandSeparator
+                                prefix="$"
+                                decimalScale={2}
+                                allowNegative={false}
+                                onValueChange={({ floatValue }) => {
+                                    setForm(prev => ({ ...prev, withdrawals: floatValue !== undefined ? String(floatValue) : "" }));
+                                }}
+                                className="w-40 rounded p-2 border"
+                            />
+                        </div>
                     </div>
                 </div>
+
                 <div>
                     <label className="block text-sm font-medium">Note (optional)</label>
                     <textarea
@@ -231,7 +267,7 @@ export default function AssetSnapshotsPage() {
                             onClick={() => {
                                 setEditingId(null);
                                 setForm({
-                                    date: "",
+                                    month: "",
                                     portfolioValue: "",
                                     contributions: "",
                                     withdrawals: "",
