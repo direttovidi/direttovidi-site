@@ -3,6 +3,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { NumericFormat } from 'react-number-format';
 import { Trash2Icon } from "lucide-react";
+import Link from "next/link";
 
 function generateMonthOptions(startYear: number, endYear: number): string[] {
     const months: string[] = [];
@@ -166,7 +167,15 @@ export default function AssetSnapshotsPage() {
 
     return (
         <div className="p-4 space-y-6">
-            <h1 className="text-xl font-bold">Asset Snapshots</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-xl font-bold">Asset Snapshots</h1>
+                <Link
+                    href="/tools/asset-snapshots/analysis"
+                    className="text-blue-600 hover:underline text-sm"
+                >
+                    View Analysis →
+                </Link>
+            </div>
 
             {error && <div className="text-red-600">{error}</div>}
 
