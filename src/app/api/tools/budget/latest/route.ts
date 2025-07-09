@@ -1,16 +1,13 @@
-// File: app/api/tools/budget/latest/route.ts
-
 import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
 
 export async function GET() {
     const session = await auth();
-    if (!session?.user?.email) {
+    const userId = session?.user?.id;
+
+    if (!userId) {
         return new Response("Unauthorized", { status: 401 });
     }
-
-    const [{ id: userId }] = await db`
-    SELECT id FROM users WHERE email = ${session.user.email}`;
 
     const [latest] = await db`
     SELECT name

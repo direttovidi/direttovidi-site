@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "sourceMap": true,
     "jsx": "preserve",
+    "types": ["next-auth"],
     "incremental": true,
     "plugins": [
       {

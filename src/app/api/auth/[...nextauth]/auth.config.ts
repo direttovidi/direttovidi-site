@@ -2,8 +2,8 @@ import type { NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
-import { getUserByEmail } from "@/lib/queries";
 import { db } from "@/lib/db";
+import { hmacEmail } from "@/lib/crypto"; // make sure this is exported
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -26,13 +26,16 @@ export const authConfig: NextAuthConfig = {
           return null;
         }
 
+        const emailHmac = hmacEmail(credentials.email);
+
         const rows = await db`
-          SELECT id, email, password_hash
+          SELECT id, password_hash
           FROM users
-          WHERE email = ${credentials.email}
+          WHERE external_id = ${emailHmac}
             AND auth_method = 'credentials'
           LIMIT 1
         `;
+
         const user = rows[0];
 
         if (!user || typeof user.password_hash !== "string") return null;
@@ -40,25 +43,83 @@ export const authConfig: NextAuthConfig = {
         const isValid = await bcrypt.compare(credentials.password, user.password_hash);
         if (!isValid) return null;
 
-        return { id: user.id, email: user.email };
+        return { id: user.id, email: credentials.email};
       },
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
-      if (session.user?.email) {
-        const dbUser = await getUserByEmail(session.user.email);
-        session.user.role = dbUser?.role ?? "user";
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google" && profile?.sub) {
+        console.log("🔐 Sign-in callback - user:", user);
+        console.log("Sign-in profile:", profile);
+
+        const externalId = profile.sub;
+        const email = profile.email;
+        const isTestAccount = email === process.env.TEST_ACCOUNT_EMAIL;
+
+        const existing = await db`
+          SELECT id FROM users WHERE external_id = ${externalId}
+        `;
+
+        if (existing.length === 0) {
+          const id = crypto.randomUUID(); // standard UUID for all users
+
+          if (isTestAccount) {
+            await db`
+              INSERT INTO users (id, external_id, auth_method, email, created_at)
+              VALUES (${id}, ${externalId}, 'google', ${email}, NOW())
+            `;
+          } else {
+            const emailHmac = hmacEmail(email ? email : "");
+
+            await db`
+              INSERT INTO users (id, external_id, auth_method, created_at)
+              VALUES (${id}, ${externalId}, 'google', NOW())
+            `;
+          }
+        }
       }
+
+      return true;
+    },
+    async session({ session, token }) {
+      console.log("🔐 Session callback - token.sub:", token.sub);
+
+      if (token.sub) {
+        session.user.id = token.sub;
+
+        const dbUser = await db`
+        SELECT role FROM users WHERE id = ${token.sub}`;
+        session.user.role = dbUser[0]?.role ?? "user";
+      }
+
+      console.log('Session: Returning session ', session)
       return session;
     },
-    async jwt({ token }) {
-      if (token.email) {
-        const dbUser = await getUserByEmail(token.email as string);
-        token.role = dbUser?.role ?? "user";
+
+    async jwt({ token, user, account, profile }) {
+      console.log("🔐 JWT callback - token:", token);
+
+      if(account) {
+        if(account.provider === "google" && profile) {
+          console.log("✅ JWT: Setting Token for Google User:", profile.sub);
+
+          const [dbUser] = await db`
+            SELECT id, role FROM users WHERE external_id = ${profile.sub}`;
+          token.sub = dbUser.id;
+          token.role = dbUser.role ?? "user";
+        } else if(account.provider == "credentials" && user) {
+          console.log("✅ JWT: Setting token for Credential User:", user.id);
+
+          token.sub = user.id;
+          token.role = user.role ?? "user";
+          token.email = user.email;
+        }
       }
+
       return token;
     },
+
     async redirect({ url, baseUrl }) {
       return baseUrl;
     },

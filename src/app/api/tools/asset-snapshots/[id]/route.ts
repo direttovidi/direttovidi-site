@@ -2,18 +2,23 @@ import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
-// ✅ Do NOT type the second argument — let Next.js handle it
-export async function PUT(req: NextRequest, { params }: any) {
-  const { id } = params;
+function getIdFromUrl(req: NextRequest): string | null {
+  const url = new URL(req.url);
+  const segments = url.pathname.split("/");
+  return segments[segments.length - 1] || null;
+}
 
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function PUT(req: NextRequest) {
+  const id = getIdFromUrl(req);
+  if (!id) {
+    return NextResponse.json({ error: "Missing ID" }, { status: 400 });
   }
 
-  const [{ id: userId }] = await db`
-    SELECT id FROM users WHERE email = ${email}`;
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json();
   const { date, portfolioValue, contributions, withdrawals, note } = body;
@@ -37,17 +42,17 @@ export async function PUT(req: NextRequest, { params }: any) {
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(req: NextRequest, { params }: any) {
-  const { id } = params;
-
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function DELETE(req: NextRequest) {
+  const id = getIdFromUrl(req);
+  if (!id) {
+    return NextResponse.json({ error: "Missing ID" }, { status: 400 });
   }
 
-  const [{ id: userId }] = await db`
-    SELECT id FROM users WHERE email = ${email}`;
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   await db`
     DELETE FROM asset_snapshots

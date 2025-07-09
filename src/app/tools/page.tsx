@@ -6,13 +6,14 @@ import { auth } from "@/app/auth";
 export default async function ToolsPage() {
   const session = await auth();
 
+  console.log("🔐 session.user.id:", session?.user?.id);
   console.log("ToolsPage session:", session);
   if (session == null || session.user.role == "user") {
     // Option 1: Redirect away
-    // redirect("/unauthorized");
+    redirect("/");
 
     // Option 2: Or render a message
-    return <div>Access denied</div>;
+    // return <div>Access denied</div>;
   }
 
   return (

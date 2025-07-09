@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignInButton } from "@/components/signin-button"; // ✅ import it
 
 export default function Navbar() {
   const pathname = usePathname();

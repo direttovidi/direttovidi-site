@@ -1,17 +1,14 @@
 import { auth } from "@/app/auth";
 import { db } from "@/lib/db";
-import { id } from "date-fns/locale";
 
 // DELETE
 export async function DELETE(req: Request) {
 	const session = await auth();
-	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
+	const userId = session?.user?.id;
+	if (!userId) return new Response("Unauthorized", { status: 401 });
 
 	const { name, category } = await req.json();
 	if (!name) return new Response("Missing budget name", { status: 400 });
-
-	const [{ id: userId }] = await db`
-		SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	const [budget] = await db`
 		SELECT id FROM budgets WHERE user_id = ${userId} AND name = ${name}`;
@@ -32,14 +29,12 @@ export async function DELETE(req: Request) {
 // GET
 export async function GET(req: Request) {
 	const session = await auth();
-	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
+	const userId = session?.user?.id;
+	if (!userId) return new Response("Unauthorized", { status: 401 });
 
 	const url = new URL(req.url);
 	const name = url.searchParams.get("name");
 	if (!name) return new Response("Missing budget name", { status: 400 });
-
-	const [{ id: userId }] = await db`
-		SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	const [budget] = await db`
 		SELECT id, is_retired, assets_equities, assets_bonds, assets_cash FROM budgets
@@ -83,13 +78,11 @@ export async function GET(req: Request) {
 // POST
 export async function POST(req: Request) {
 	const session = await auth();
-	if (!session?.user?.email) return new Response("Unauthorized", { status: 401 });
+	const userId = session?.user?.id;
+	if (!userId) return new Response("Unauthorized", { status: 401 });
 
 	const { name, originalName, items, isRetired, assetsEquities, assetsBonds, assetsCash } = await req.json();
 	if (!name || typeof name !== "string") return new Response("Missing or invalid name", { status: 400 });
-
-	const [{ id: userId }] = await db`
-		SELECT id FROM users WHERE email = ${session.user.email}`;
 
 	let budgetId;
 
@@ -193,4 +186,3 @@ export async function POST(req: Request) {
 
 	return new Response("Saved", { status: 200 });
 }
-
